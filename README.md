@@ -52,6 +52,10 @@ Save AI-generated recipes as text files to `~/FlavorForge_Recipes/`.
 
 ---
 
+## Screenshots
+
+<img width="2067" height="1155" alt="image" src="https://github.com/user-attachments/assets/588d133e-9193-4e9b-9e51-8d22eb7f760f" />
+
 ## The Database
 
 | Category | Count | Examples |
