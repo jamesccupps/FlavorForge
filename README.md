@@ -87,7 +87,7 @@ One-Pot, Pasta & Noodles, Stir-Fry, Curry & Stew, Tacos & Wraps, Bowls, Soup (13
 
 ### Quick Start
 ```bash
-git clone https://github.com/YOUR_USERNAME/FlavorForge.git
+git clone https://github.com/jamesccupps/FlavorForge.git
 cd FlavorForge
 python flavorforge.py
 ```
