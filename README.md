@@ -29,7 +29,7 @@ Choose a dish type → pick a template → fill in each slot with guided suggest
 - **Texture gaps** — "missing crunch, try nuts or breadcrumbs"
 - **Taste balance** — "no acid, consider lemon or vinegar"
 
-Includes 24 noodle/pasta types, 9 breads, 7 rices, 8 broths, 11 cooking sauces, and 18 dressings.
+Includes 24 noodle/pasta types, 9 breads, 7 rices, 8 broths, 16 cooking sauces, and 21 dressings.
 
 ### 🌉 Bridge Finder
 Pick two ingredients that seem incompatible (chocolate + salmon) and find a third ingredient that shares compounds with both — bridging the gap.
@@ -52,33 +52,36 @@ Save AI-generated recipes as text files to `~/FlavorForge_Recipes/`.
 
 ---
 
-## Screenshots
+## Screenshot
 
-<img width="2067" height="1155" alt="image" src="https://github.com/user-attachments/assets/588d133e-9193-4e9b-9e51-8d22eb7f760f" />
+![FlavorForge main window](docs/screenshots/main-window.png)
 
 ## The Database
 
+297 ingredients across 17 categories, 84 aroma compounds, 1,632 flavor links.
+
 | Category | Count | Examples |
 |---|---|---|
-| Proteins | 22 | chicken, beef, duck, bacon, tofu, tempeh |
-| Seafood | 12 | salmon, shrimp, scallop, lobster, anchovy |
+| Grains & Starches | 48 | 24 noodles/pastas, 9 breads, 7 rices, plus quinoa / polenta / farro / couscous |
 | Vegetables | 42 | tomato, beet, fennel, bok choy, artichoke |
-| Fruits | 23 | strawberry, fig, passion fruit, lychee |
-| Herbs | 12 | basil, tarragon, lemongrass, sage |
 | Spices | 36 | garam masala, za'atar, Old Bay, five spice |
-| Seasonings | 13 | garlic powder, chili powder, sesame seeds |
-| Cheeses/Dairy | 26 | gruyere, cotija, labneh, mascarpone |
-| Grains | 35 | 24 noodles/pastas, 9 breads, 7 rices |
-| Nuts/Seeds | 14 | tahini, macadamia, peanut butter |
-| Mushrooms | 7 | chanterelle, morel, shiitake, truffle |
-| Sauces | 19 | marinara, alfredo, curry paste, chimichurri |
-| Broths | 8 | dashi, bone broth, coconut broth, miso broth |
+| Dairy & Cheese | 26 | gruyere, cotija, labneh, mascarpone |
 | Fermented | 25 | miso, gochujang, kimchi, balsamic |
-| Condiments | 10 | sriracha, aioli, guacamole, hummus |
-| **Total** | **297 ingredients, 84 compounds, 1,632 flavor links** |
+| Sauces | 24 | marinara, alfredo, curry paste, chimichurri |
+| Fruits | 19 | strawberry, fig, passion fruit, lychee |
+| Nuts & Seeds | 14 | tahini, macadamia, peanut butter |
+| Proteins | 13 | chicken, beef, duck, tofu, tempeh |
+| Herbs | 12 | basil, tarragon, lemongrass, sage |
+| Seafood | 9 | salmon, shrimp, scallop, lobster, anchovy |
+| Mushrooms | 7 | chanterelle, morel, shiitake, truffle |
+| Legumes | 5 | lentils, chickpeas, black beans |
+| Sweeteners | 5 | honey, maple syrup, molasses |
+| Alliums | 5 | garlic, onion, shallot, leek, scallion |
+| Citrus | 4 | lemon, lime, orange, yuzu |
+| Oils & Fats | 3 | olive oil, butter, sesame oil |
 
 ### 102 Recipe Templates across 16 Dish Types
-One-Pot, Pasta & Noodles, Stir-Fry, Curry & Stew, Tacos & Wraps, Bowls, Soup (13 templates including chowders, ramen, pho, tom yum, gazpacho), Casserole & Bake (including mac & cheese), Grilled & Seared (including fried chicken), Salad & Slaw (including ceviche), Breakfast & Brunch, Sandwich (including burgers), Pizza & Flatbread, Dessert & Sweet, Snack & Appetizer (including wings, nachos, dumplings, empanadas, loaded fries), Sauce & Dip.
+One-Pot, Pasta & Noodles, Stir-Fry & Wok, Curry & Stew, Tacos & Wraps, Bowl, Soup (13 templates including chowders, ramen, pho, tom yum, gazpacho), Casserole & Bake (including mac & cheese), Grilled & Seared (including fried chicken), Salad & Slaw (including ceviche), Breakfast & Brunch, Sandwich (including burgers), Pizza & Flatbread, Dessert & Sweet, Snack & Appetizer (including wings, nachos, dumplings, empanadas, loaded fries), Sauce & Dip.
 
 ---
 
@@ -177,11 +180,11 @@ FlavorForge saves user data to your home directory:
 ## Project Stats
 
 - **4,874 lines** of Python
-- **297 ingredients** across 17 categories  
+- **297 ingredients** across 17 categories
 - **84 aroma compounds** with descriptions
 - **1,632 flavor links**
 - **102 recipe templates** across 16 dish types
-- **22 slot types** including grain, sauce, and broth subtypes
+- **24 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter
 
