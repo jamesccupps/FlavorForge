@@ -203,4 +203,4 @@ Flavor compound data is based on research from:
 - **Ahn et al. (2011)** — "Flavor network and the principles of food pairing" (Scientific Reports)
 - **Foodpairing.com** methodology
 
-Built by [James Cupps](https://gsefix.com).
+Built by [James Cupps]
