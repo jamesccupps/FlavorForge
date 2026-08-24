@@ -256,3 +256,80 @@ def test_the_readme_counts_match_the_data(ffmod):
     assert f"{len(ffmod.INGREDIENTS)} ingredients" in readme
     assert f"{len(ffmod.COMPOUNDS)} aroma compounds" in readme
     assert f"{len(ffmod.DISH_TEMPLATES)} recipe templates" in readme
+
+
+# ─── reachability ──────────────────────────────────────────────────────
+
+def _reachable(ffmod):
+    used = {s for t in ffmod.DISH_TEMPLATES for s in t["structure"]}
+    out = set()
+    for slot in used:
+        out.update(ffmod.get_slot_candidates(slot))
+    return out
+
+
+def test_every_declared_slot_is_actually_used(ffmod):
+    """The direction that bit: `oil` was declared in SLOT_CAT_MAP and used by
+    none of the 102 templates, so no generated recipe could ever contain a
+    cooking fat — while _add_staples listed olive oil as a pantry staple and
+    analyze_balance cheerfully advised "Needs richness — add butter, oil"."""
+    used = {s for t in ffmod.DISH_TEMPLATES for s in t["structure"]}
+    unused = sorted(set(ffmod.SLOT_CAT_MAP) - used - SUBTYPE_SLOTS)
+    assert not unused, (
+        f"slots declared in SLOT_CAT_MAP but used by no template: {unused} — "
+        f"every ingredient reachable only through them is unreachable")
+
+
+def test_every_ingredient_category_is_reachable(ffmod):
+    """A whole category no slot can select is a category of ingredients the
+    generator can never use. oil/fat was 0 of 3."""
+    by_cat = collections.Counter(ffmod.INGREDIENTS[n].category for n in _reachable(ffmod))
+    dead = sorted(c for c in ffmod.CATEGORIES if by_cat[c] == 0)
+    assert not dead, f"categories no template slot can reach: {dead}"
+
+
+def test_only_the_deliberate_exclusions_are_unreachable(ffmod):
+    """flour and cornstarch are held out of the generic grain slot on purpose —
+    get_slot_candidates says so in a comment. Pinned so the exclusion stays
+    deliberate rather than quietly becoming an accident again."""
+    unreachable = set(ffmod.INGREDIENTS) - _reachable(ffmod)
+    assert unreachable == {"flour", "cornstarch"}, sorted(unreachable)
+
+
+def test_the_fat_slot_reaches_every_oil(ffmod):
+    assert set(ffmod.get_slot_candidates("oil")) == {
+        n for n, i in ffmod.INGREDIENTS.items() if i.category == "oil/fat"}
+
+
+# Ceviche is raw fish cured in citrus. It has no cooking fat and should not
+# grow one — the exception is named rather than papered over.
+NO_FAT_BY_DESIGN = {"Ceviche"}
+
+
+def test_stir_fry_and_salad_templates_call_for_a_fat(ffmod):
+    """Every template in these families except the deliberate exceptions."""
+    for t in ffmod.DISH_TEMPLATES:
+        if t["dish_type"] not in ("Stir-Fry & Wok", "Salad & Slaw"):
+            continue
+        if any(x in t["name"] for x in NO_FAT_BY_DESIGN):
+            continue
+        assert "oil" in t["structure"], f"{t['name']!r} has no fat slot"
+
+
+def test_generated_stir_fries_name_a_fat(engine, ffmod):
+    """The point of the fix, end to end rather than by inspection."""
+    for _ in range(20):
+        r = engine.generate_recipe(dish_type="Stir-Fry & Wok")
+        assert "oil" in r["ingredients"], f"{r['name']} has no fat"
+        assert ffmod.INGREDIENTS[r["ingredients"]["oil"]].category == "oil/fat"
+
+
+def test_every_used_slot_has_a_display_role(ffmod):
+    """A slot with no role_labels entry renders its raw key to the user —
+    "Role: rice_type" rather than "Role: the rice"."""
+    src = SRC.read_text(encoding="utf-8")
+    block = src[src.index("role_labels = {"):]
+    block = block[:block.index("}")]
+    labelled = set(re.findall(r'"([a-z_]+)":', block))
+    used = {s for t in ffmod.DISH_TEMPLATES for s in t["structure"]}
+    assert not (used - labelled), f"slots with no display label: {sorted(used - labelled)}"

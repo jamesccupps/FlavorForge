@@ -1514,23 +1514,23 @@ DISH_TEMPLATES = [
     # ──────────── STIR-FRY & WOK ────────────
     {"name": "{protein} and {vegetable} Stir-Fry with {spice} and {fermented}",
      "dish_type": "Stir-Fry & Wok",
-     "structure": {"protein": 1, "vegetable": 1, "spice": 1, "fermented": 1},
-     "technique": "Velvet {protein}. Wok-sear {vegetable} over high heat. Add {protein} back with {spice} and {fermented} sauce. Serve over rice.",
+     "structure": {"protein": 1, "vegetable": 1, "spice": 1, "fermented": 1, "oil": 1},
+     "technique": "Velvet {protein}. Wok-sear {vegetable} in {oil} over high heat. Add {protein} back with {spice} and {fermented} sauce. Serve over rice.",
      "needs": ["protein", "vegetable"]},
     {"name": "{protein} and {vegetable} Fried {rice_type} with {fermented}",
      "dish_type": "Stir-Fry & Wok",
-     "structure": {"protein": 1, "vegetable": 1, "rice_type": 1, "fermented": 1},
-     "technique": "Use day-old {rice_type}. Scramble eggs, push aside. Stir-fry diced {protein} and {vegetable}. Add rice, toss with {fermented}.",
+     "structure": {"protein": 1, "vegetable": 1, "rice_type": 1, "fermented": 1, "oil": 1},
+     "technique": "Use day-old {rice_type}. Scramble eggs in {oil}, push aside. Stir-fry diced {protein} and {vegetable}. Add rice, toss with {fermented}.",
      "needs": ["protein", "vegetable"]},
     {"name": "{fermented}-Glazed {protein} with {vegetable} and {nut}",
      "dish_type": "Stir-Fry & Wok",
-     "structure": {"fermented": 1, "protein": 1, "vegetable": 1, "nut": 1},
-     "technique": "Stir-fry {protein} until charred. Add {vegetable}. Glaze with {fermented}. Garnish with toasted {nut}.",
+     "structure": {"fermented": 1, "protein": 1, "vegetable": 1, "nut": 1, "oil": 1},
+     "technique": "Stir-fry {protein} in {oil} until charred. Add {vegetable}. Glaze with {fermented}. Garnish with toasted {nut}.",
      "needs": ["protein", "vegetable"]},
     {"name": "Crispy {protein} with {vegetable} in {spice} Sauce",
      "dish_type": "Stir-Fry & Wok",
-     "structure": {"protein": 1, "vegetable": 1, "spice": 1},
-     "technique": "Coat {protein} in cornstarch, deep fry until crispy. Stir-fry {vegetable}. Toss everything in {spice} sauce.",
+     "structure": {"protein": 1, "vegetable": 1, "spice": 1, "oil": 1},
+     "technique": "Coat {protein} in cornstarch, deep fry in {oil} until crispy. Stir-fry {vegetable}. Toss everything in {spice} sauce.",
      "needs": ["protein", "vegetable"]},
 
     # ──────────── CURRY & STEW ────────────
@@ -1777,22 +1777,22 @@ DISH_TEMPLATES = [
     # ──────────── SALAD & SLAW ────────────
     {"name": "{fruit} and {herb} Salad with {cheese}",
      "dish_type": "Salad & Slaw",
-     "structure": {"fruit": 1, "herb": 1, "cheese": 1},
+     "structure": {"fruit": 1, "herb": 1, "cheese": 1, "oil": 1},
      "technique": "Slice {fruit} thin, toss with torn {herb} leaves, shave {cheese} over, dress lightly.",
      "needs": ["fruit"]},
     {"name": "{fruit} and {vegetable} Slaw with {spice} Vinaigrette",
      "dish_type": "Salad & Slaw",
-     "structure": {"fruit": 1, "vegetable": 1, "spice": 1},
-     "technique": "Shred {vegetable} and slice {fruit} thin. Toast {spice}, whisk into vinaigrette. Toss and rest.",
+     "structure": {"fruit": 1, "vegetable": 1, "spice": 1, "oil": 1},
+     "technique": "Shred {vegetable} and slice {fruit} thin. Toast {spice}, whisk into a {oil} vinaigrette. Toss and rest.",
      "needs": ["fruit", "vegetable"]},
     {"name": "{grain} Salad with {fruit}, {herb}, and {nut}",
      "dish_type": "Salad & Slaw",
-     "structure": {"grain": 1, "fruit": 1, "herb": 1, "nut": 1},
+     "structure": {"grain": 1, "fruit": 1, "herb": 1, "nut": 1, "oil": 1},
      "technique": "Cook {grain} and cool. Toss with diced {fruit}, chopped {herb}, and toasted {nut}. Dress with citrus vinaigrette.",
      "needs": ["grain", "fruit"]},
     {"name": "{protein} and {vegetable} Salad with {citrus} Dressing and {nut}",
      "dish_type": "Salad & Slaw",
-     "structure": {"protein": 1, "vegetable": 1, "citrus": 1, "nut": 1},
+     "structure": {"protein": 1, "vegetable": 1, "citrus": 1, "nut": 1, "oil": 1},
      "technique": "Grill or poach {protein}. Toss greens with shaved {vegetable}. Dress with {citrus}. Scatter toasted {nut}.",
      "needs": ["protein", "vegetable"]},
     # ── Ceviche ──
@@ -2022,7 +2022,16 @@ SLOT_CAT_MAP = {
     "citrus": ["citrus"],
     "sweetener": ["sweetener"],
     "allium": ["allium"],
-    "sauce": ["sauce"],
+    # NOTE: no bare "sauce" slot. Sauce-category ingredients are reached
+    # through the broth / cooking_sauce / dressing subtypes below, which
+    # is the distinction that matters: a stock is not a pizza sauce is
+    # not a vinaigrette. A generic slot mixing all three could put a
+    # chicken stock on a pizza. All 24 stay reachable via the subtypes.
+    # Used by the stir-fry and salad templates, where WHICH fat you reach for
+    # is itself a flavour decision (sesame vs coconut vs olive changes the
+    # dish). Everywhere else fat stays an assumed staple that the AI prompt
+    # tells the model to add. This slot was declared and used by no template
+    # at all through v3.0, which made all three oils unreachable.
     "oil": ["oil/fat"],
     # Grain subtypes — filter to specific grain sets
     "noodle": ["grain"],
@@ -3379,6 +3388,9 @@ class FlavorForgeGUI:
             "mushroom": "umami depth", "fermented": "complexity/fermented",
             "sweetener": "sweetness", "citrus": "acid", "legume": "heartiness",
             "allium": "aromatic base", "garnish": "garnish", "accent": "accent flavor",
+            "oil": "the cooking fat", "noodle": "the noodle", "bread": "the bread",
+            "rice_type": "the rice", "broth": "the broth", "seafood": "the seafood",
+            "cooking_sauce": "the sauce", "dressing": "the dressing",
         }
 
         for slot, ing_name in recipe["ingredients"].items():
