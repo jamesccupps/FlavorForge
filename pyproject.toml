@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flavorforge"
+version = "3.0.0"
+description = "Procedural cooking engine built on molecular flavor-compound pairing"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "James Cupps" }]
+keywords = ["cooking", "recipes", "flavor-pairing", "food-science", "tkinter"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Environment :: X11 Applications",
+    "Intended Audience :: End Users/Desktop",
+]
+# No runtime dependencies, deliberately. FlavorForge is one file you can run
+# with a stock Python install; tkinter ships with CPython. The Claude and
+# Ollama integrations use urllib rather than an SDK for the same reason.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/jamesccupps/FlavorForge"
+Changelog = "https://github.com/jamesccupps/FlavorForge/blob/main/CHANGELOG.md"
+
+[project.scripts]
+flavorforge = "flavorforge:main"
+
+[tool.setuptools]
+py-modules = ["flavorforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

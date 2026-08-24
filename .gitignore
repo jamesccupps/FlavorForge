@@ -30,3 +30,8 @@ desktop.ini
 .flavorforge_pantry.json
 .flavorforge_saved_recipes.json
 FlavorForge_Recipes/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
