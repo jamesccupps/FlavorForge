@@ -23,8 +23,15 @@ if sys.platform == "win32":
         except Exception:
             pass
 
-import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+try:
+    import tkinter as tk
+    from tkinter import ttk, messagebox, scrolledtext
+    HAVE_TK = True
+except ImportError:                       # headless box, or no python3-tk
+    tk = ttk = messagebox = scrolledtext = None
+    HAVE_TK = False
+
+import argparse
 import math
 import random
 import json
@@ -41,6 +48,8 @@ from typing import Dict, List, Set, Tuple, Optional
 # Based on real aroma chemistry data (FlavorDB, Ahn et al. 2011)
 # Compounds are key volatile/aroma molecules that define flavor
 # ═══════════════════════════════════════════════════════════════════
+
+__version__ = "3.1.0"
 
 COMPOUND_CATEGORIES = {
     "terpene": "#4CAF50",
@@ -1404,17 +1413,17 @@ def analyze_balance(ingredient_names: List[str]) -> dict:
 
     # Aggregate taste dimensions
     taste_totals = defaultdict(float)
-    taste_counts = defaultdict(int)
     for name in ingredient_names:
-        profile = get_taste_profile(name)
-        for dim, val in profile.items():
+        for dim, val in get_taste_profile(name).items():
             taste_totals[dim] += val
-            taste_counts[dim] += 1
 
-    # Average taste levels
-    taste_avg = {}
-    for dim in taste_totals:
-        taste_avg[dim] = taste_totals[dim] / len(ingredient_names)
+    # Averaged over every ingredient, not just the ones carrying that
+    # dimension: one very sour thing among six should read as mildly sour
+    # overall, which is how the dish tastes. (A per-dimension counter used to
+    # be maintained here and never read; this is the denominator that was
+    # always intended.)
+    taste_avg = {dim: total / len(ingredient_names)
+                 for dim, total in taste_totals.items()} if ingredient_names else {}
 
     # Texture analysis
     has_crunchy = bool(texture_set & {"crunchy", "crispy", "crisp", "crusty", "snappy", "crumbly"})
@@ -2319,6 +2328,65 @@ class FlavorEngine:
         bridges.sort(key=lambda x: x["score"], reverse=True)
         return bridges[:10]
 
+    def substitutes(self, name: str, top_n: int = 10) -> List[dict]:
+        """What to reach for when you have no `name`.
+
+        A substitute is not the same question as a pairing, which is why this
+        is not just get_pairings under another name. A pairing is something to
+        put *with* an ingredient; a substitute has to stand *in* for it, so it
+        must be able to do the same job in a dish. That means the same
+        category, and — for grains and sauces, where the category is far too
+        coarse — the same subtype: a stock cannot stand in for a vinaigrette,
+        and orzo cannot stand in for a baguette.
+        """
+        target = self.ingredients.get(name)
+        if not target:
+            return []
+
+        pool = {n for n, i in self.ingredients.items()
+                if i.category == target.category and n != name}
+        # Narrow to the subtype when the ingredient belongs to one.
+        for slot, members in _SLOT_SUBSETS.items():
+            if name in members:
+                pool &= set(members)
+
+        out = []
+        for other in pool:
+            score, shared = self.weighted_similarity(name, other)
+            out.append({
+                "ingredient": other,
+                "score": score,
+                "shared_compounds": shared,
+                "category": self.ingredients[other].category,
+                # Said plainly, because a substitute with nothing in common is
+                # a role-swap, not a flavour match, and the cook should know
+                # which one they are being offered.
+                "aroma_match": bool(shared - self._boring_compounds),
+            })
+        out.sort(key=lambda x: (x["aroma_match"], x["score"]), reverse=True)
+        return out[:top_n]
+
+    def ingredients_with_compound(self, compound: str) -> List[str]:
+        """The inverse index: everything carrying a given aroma compound.
+
+        The database is a mapping and could only ever be read in one direction
+        — pick an ingredient, see its compounds. Asking "what else tastes of
+        geosmin?" is the more interesting half and there was no way to ask it.
+        """
+        if compound not in self.compounds:
+            return []
+        return sorted(n for n, i in self.ingredients.items() if compound in i.compounds)
+
+    def search_compounds(self, text: str) -> List[str]:
+        """Compound keys whose name or description matches `text`."""
+        needle = text.strip().lower()
+        if not needle:
+            return []
+        return sorted(k for k, c in self.compounds.items()
+                      if needle in k.lower()
+                      or needle in c.name.lower()
+                      or needle in c.description.lower())
+
     def novelty_score(self, ingredients: List[str]) -> float:
         if len(ingredients) < 2:
             return 0.0
@@ -3164,6 +3232,11 @@ class AIChef:
 
 class FlavorForgeGUI:
     def __init__(self):
+        if not HAVE_TK:
+            raise RuntimeError(
+                "tkinter is not available, so the GUI cannot start.\n"
+                "On Debian/Ubuntu: sudo apt install python3-tk\n"
+                "Or use the command line instead: flavorforge --help")
         self.engine = FlavorEngine()
         self.ai_chef = AIChef()
         self.root = tk.Tk()
@@ -3401,6 +3474,31 @@ class FlavorForgeGUI:
             self.pair_results.insert(tk.END, f"\n       Shared: ")
             self.pair_results.insert(tk.END, f"{', '.join(shared_names)}", "compound")
             self.pair_results.insert(tk.END, f"\n       Notes: {ing_p.flavor_notes}\n")
+
+        # ── Substitutes ──
+        # A different question from the list above: a pairing goes WITH the
+        # ingredient, a substitute stands IN for it. Same category, and the
+        # same subtype where there is one, so a stock is never offered in
+        # place of a vinaigrette.
+        subs = self.engine.substitutes(ing_key, 6)
+        if subs:
+            self.pair_results.insert(
+                tk.END, f"\n\n  NO {ing.name.upper()}? USE INSTEAD\n", "header")
+            for s in subs:
+                sub_ing = INGREDIENTS[s["ingredient"]]
+                self.pair_results.insert(tk.END, f"    • {sub_ing.name}")
+                if s["aroma_match"]:
+                    distinctive = sorted(
+                        s["shared_compounds"] - self.engine._boring_compounds,
+                        key=lambda c: -self.engine._weight.get(c, 0))
+                    names = [COMPOUNDS[c].name for c in distinctive[:3] if c in COMPOUNDS]
+                    self.pair_results.insert(tk.END, f"  ({s['score']:.2f}) ", "score_high")
+                    self.pair_results.insert(tk.END, f"shares {', '.join(names)}\n",
+                                             "compound")
+                else:
+                    self.pair_results.insert(
+                        tk.END, "  same role, different flavour — swap with care\n",
+                        "score_low")
 
         self.pair_results.config(state=tk.DISABLED)
 
@@ -5200,6 +5298,195 @@ class FlavorForgeGUI:
         self.root.mainloop()
 
 
+# ═══════════════════════════════════════════════════════════════════
+# COMMAND LINE
+# The engine is the interesting half of this program and it was reachable
+# only through 2,000 lines of Tk. This makes it scriptable, usable over
+# SSH, and — with the guarded tkinter import at the top — usable on a box
+# with no GUI toolkit installed at all.
+# ═══════════════════════════════════════════════════════════════════
+
+def _resolve(name: str) -> Optional[str]:
+    """Accept a key, a display name, or an unambiguous prefix."""
+    raw = name.strip().lower()
+    key = raw.replace(" ", "_").replace("-", "_")
+    if key in INGREDIENTS:
+        return key
+    for k, ing in INGREDIENTS.items():
+        if ing.name.lower() == raw:
+            return k
+    hits = [k for k in INGREDIENTS if k.startswith(key)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _die_unknown(name: str) -> int:
+    print("No ingredient matching %r." % name, file=sys.stderr)
+    stem = name.strip().lower()[:4]
+    near = sorted(k for k in INGREDIENTS if stem and stem in k)[:8]
+    if near:
+        print("Close: " + ", ".join(near), file=sys.stderr)
+    print("Use --list to see everything.", file=sys.stderr)
+    return 2
+
+
+def _fmt_compounds(engine, shared, limit: int = 4) -> str:
+    """Name the distinctive shared compounds, skipping the near-universal
+    ones — the same rule the Recipe tab applies when it explains a pairing."""
+    interesting = sorted(shared - engine._boring_compounds,
+                         key=lambda c: -engine._weight.get(c, 0))
+    names = [COMPOUNDS[c].name for c in interesting[:limit] if c in COMPOUNDS]
+    return ", ".join(names) if names else "background notes only"
+
+
+def run_cli(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="flavorforge",
+        description="Molecular flavor pairing from the command line. "
+                    "With no arguments, starts the GUI.")
+    g = parser.add_mutually_exclusive_group()
+    g.add_argument("--pair", metavar="INGREDIENT",
+                   help="top molecular pairings for an ingredient")
+    g.add_argument("--substitute", metavar="INGREDIENT",
+                   help="what to use when you have none")
+    g.add_argument("--bridge", nargs=2, metavar=("A", "B"),
+                   help="find ingredients connecting two others")
+    g.add_argument("--compound", metavar="NAME",
+                   help="everything carrying an aroma compound, or search for one")
+    g.add_argument("--recipe", action="store_true", help="generate a recipe concept")
+    g.add_argument("--list", action="store_true", help="list every ingredient")
+    parser.add_argument("--seed", metavar="INGREDIENT",
+                        help="with --recipe: build the dish around this")
+    parser.add_argument("--dish-type", metavar="TYPE",
+                        help="with --recipe: e.g. 'Soup', 'Pizza & Flatbread'")
+    parser.add_argument("--category", metavar="CAT",
+                        help="with --list: filter to one category")
+    parser.add_argument("-n", type=int, default=15, metavar="N",
+                        help="how many results (default 15)")
+    parser.add_argument("--version", action="version",
+                        version="FlavorForge " + __version__)
+    args = parser.parse_args(argv)
+
+    engine = FlavorEngine()
+
+    if args.list:
+        names = sorted(INGREDIENTS)
+        if args.category:
+            names = [n for n in names if INGREDIENTS[n].category == args.category]
+            if not names:
+                print("No category %r. Known: %s"
+                      % (args.category, ", ".join(sorted(CATEGORIES))), file=sys.stderr)
+                return 2
+        for n in names:
+            i = INGREDIENTS[n]
+            print("%-24s %-10s %s" % (n, i.category, i.flavor_notes))
+        print("\n%d ingredients" % len(names), file=sys.stderr)
+        return 0
+
+    if args.compound:
+        exact = engine.ingredients_with_compound(args.compound)
+        if exact:
+            c = COMPOUNDS[args.compound]
+            pct = 100.0 * len(exact) / len(INGREDIENTS)
+            print("%s  [%s]  %s" % (c.name, c.category, c.description))
+            print("in %d of %d ingredients (%.1f%%)\n" % (len(exact), len(INGREDIENTS), pct))
+            for n in exact:
+                print("  %-24s %s" % (n, INGREDIENTS[n].category))
+            return 0
+        matches = engine.search_compounds(args.compound)
+        if not matches:
+            print("No compound matching %r." % args.compound, file=sys.stderr)
+            return 2
+        print("%d compound(s) matching %r:" % (len(matches), args.compound))
+        for k in matches:
+            c = COMPOUNDS[k]
+            print("  %-22s %-26s %s  [%d ingredients]"
+                  % (k, c.name, c.description, engine._compound_freq.get(k, 0)))
+        return 0
+
+    if args.pair or args.substitute:
+        raw = args.pair or args.substitute
+        key = _resolve(raw)
+        if not key:
+            return _die_unknown(raw)
+        ing = INGREDIENTS[key]
+        rows = (engine.get_pairings(key, args.n) if args.pair
+                else engine.substitutes(key, args.n))
+        print("%s  [%s]  %s" % (ing.name, ing.category, ing.flavor_notes))
+        own = sorted(COMPOUNDS[c].name for c in ing.compounds if c in COMPOUNDS)
+        print("compounds: %s\n" % (", ".join(own) or "none — pure taste, no aroma"))
+        if not rows:
+            print("Nothing in the database connects to it.")
+            return 0
+        print("  %-22s %6s  shared aroma" % ("ingredient", "score"))
+        for r in rows:
+            flag = "" if r.get("aroma_match", True) else "   (role match, not aroma)"
+            print("  %-22s %6.3f  %s%s"
+                  % (INGREDIENTS[r["ingredient"]].name, r["score"],
+                     _fmt_compounds(engine, r["shared_compounds"]), flag))
+        return 0
+
+    if args.bridge:
+        a = _resolve(args.bridge[0])
+        if not a:
+            return _die_unknown(args.bridge[0])
+        b = _resolve(args.bridge[1])
+        if not b:
+            return _die_unknown(args.bridge[1])
+        bridges = engine.find_bridge(a, b)
+        print("Bridging %s and %s:\n" % (INGREDIENTS[a].name, INGREDIENTS[b].name))
+        if not bridges:
+            print("  Nothing connects them. That is a real answer, not an error —")
+            print("  try --pair on each and look for an overlap yourself.")
+            return 0
+        for br in bridges:
+            print("  %-22s %6.3f" % (INGREDIENTS[br["ingredient"]].name, br["score"]))
+            print("    to %s: %s" % (INGREDIENTS[a].name,
+                                     _fmt_compounds(engine, br["connects_to_a"])))
+            print("    to %s: %s" % (INGREDIENTS[b].name,
+                                     _fmt_compounds(engine, br["connects_to_b"])))
+        return 0
+
+    if args.recipe:
+        seed = None
+        if args.seed:
+            seed = _resolve(args.seed)
+            if not seed:
+                return _die_unknown(args.seed)
+        r = engine.generate_recipe(seed_ingredient=seed, dish_type=args.dish_type)
+        if "error" in r:
+            print(r["error"], file=sys.stderr)
+            return 1
+        print(r["name"])
+        print("=" * len(r["name"]))
+        print("%s   novelty %.0f%%\n" % (r["dish_type"], r["novelty"] * 100))
+        for slot, name in r["ingredients"].items():
+            print("  %-14s %-22s %s" % (slot, INGREDIENTS[name].name,
+                                        INGREDIENTS[name].flavor_notes))
+        print("\n%s\n" % r["technique"])
+        interesting = [c for c in r["connections"]
+                       if c["shared"] - engine._boring_compounds]
+        if interesting:
+            print("Why it works:")
+            for c in interesting[:8]:
+                x, y = c["pair"]
+                print("  %s + %s: %s" % (INGREDIENTS[x].name, INGREDIENTS[y].name,
+                                         _fmt_compounds(engine, c["shared"])))
+        return 0
+
+    # No sub-command: start the GUI, which is what double-clicking the file
+    # has always done.
+    if not HAVE_TK:
+        parser.print_help()
+        print("\ntkinter is not installed, so the GUI is unavailable.", file=sys.stderr)
+        return 1
+    FlavorForgeGUI().run()
+    return 0
+
+
+def main() -> None:
+    """Entry point for the `flavorforge` console script and for `python -m`."""
+    sys.exit(run_cli())
+
+
 if __name__ == "__main__":
-    app = FlavorForgeGUI()
-    app.run()
+    main()

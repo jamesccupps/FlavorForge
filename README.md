@@ -11,7 +11,7 @@ Send the result to your local Ollama instance or Claude API, and the AI gets a p
 ## Features
 
 ### 🧪 Pairing Explorer
-Select any ingredient and see its top 25 molecular pairings ranked by shared aroma compound rarity. Discover that strawberry and tomato share 5 compounds, or that coffee and chocolate are connected through 6 different molecules.
+Select any ingredient and see its top 25 molecular pairings ranked by shared aroma compound rarity. Discover that strawberry and tomato share 5 compounds, or that coffee and chocolate are connected through 7 different molecules.
 
 ### 🕸 Flavor Graph
 Interactive network visualization of the entire ingredient database. Nodes are ingredients, edges are shared compounds. Adjust the similarity threshold, filter by category, click nodes to inspect.
