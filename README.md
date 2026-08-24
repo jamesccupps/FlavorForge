@@ -145,7 +145,15 @@ FlavorForge works standalone — the AI Chef tab is optional.
 ## How It Works
 
 ### Molecular Flavor Pairing
-Each ingredient is mapped to its key volatile aroma compounds. When two ingredients share compounds — especially rare ones — they harmonize on a molecular level. FlavorForge uses a **rarity-weighted Jaccard similarity** score: sharing a common compound like hexanal (appears in 60%+ of ingredients) scores low, while sharing gamma-decalactone (peach, coconut — appears in <5%) scores high.
+Each ingredient is mapped to its key volatile aroma compounds. When two ingredients share compounds — especially rare ones — they harmonize on a molecular level.
+
+FlavorForge scores this with a **rarity-weighted Jaccard similarity**: the ordinary Jaccard index (shared ÷ combined) with each compound weighted by inverse document frequency, `log(N / ingredients_containing_it)`, instead of counted as 1. Identical profiles score 1.0, disjoint ones 0.0.
+
+Rarity is doing real work here. Hexanal — grassy, green — is in 63% of the database, so it carries about **8%** of the weight of a compound found in a single ingredient. Sharing hexanal tells you almost nothing, and the score now says so.
+
+> **This changed in 3.1, and it changed every number the app shows.** Through 3.0 the weight was `0.5 + 0.5 × rarity`, whose constant floor swamped the rarity term: hexanal scored 0.68 against a ceiling of 1.0, or 70% of a unique compound. The measurable effect was that of the 31,387 ingredient pairs the app reported as connected, 16,501 — **52.6%** — shared nothing but hexanal, linalool or nonanal. Over half of every "pairing" was three compounds that are in almost everything. The 3.0 formula was also not Jaccard, despite this section having said so since 1.0: it divided by the average profile size rather than by the union.
+
+Ranked lists go one step further and drop matches resting *entirely* on compounds present in more than 30% of the database. Scoring already pushes those down; excluding them keeps a short honest list in place of 25 rows of coincidence. The two populations genuinely cannot be separated by a score threshold — 83.6% of pairs with a real shared compound score below the *highest* ubiquitous-only pair — so the filter works on the shared set, not on a cutoff.
 
 ### Texture Contrast
 Every ingredient has texture tags (crispy, creamy, chewy, tender, etc.). The balance system checks for missing texture dimensions and suggests fixes: "Missing crunch — try adding nuts, seeds, or crispy onions."

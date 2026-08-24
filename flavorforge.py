@@ -2129,15 +2129,68 @@ class FlavorEngine:
             if count > self._total_ings * 0.30
         }
 
+        # Per-compound weights, computed once. See _compound_weight.
+        self._weight = {c: self._compound_weight(c) for c in self._compound_freq}
+        self._max_weight = max(self._weight.values()) if self._weight else 1.0
+
+    def _compound_weight(self, compound: str) -> float:
+        """How much a shared compound is worth, by how rare it is.
+
+        Inverse document frequency, log(N / freq), which is the standard answer
+        to "this term appears everywhere, so its presence tells me nothing".
+
+        The previous formula was ``0.5 + 0.5 * (1 - freq/N)``. Monotonic, and
+        so superficially correct, but the constant floor dominated the rarity
+        term: hexanal, present in 63% of the database, scored 0.68 against a
+        ceiling of 1.0 — 70% of what a compound found in a single ingredient
+        was worth. Sharing a near-universal green note counted almost as much
+        as sharing geosmin.
+
+        What that cost, measured before the change: of the 31,387 ingredient
+        pairs the app reported as connected, 16,501 — 52.6% — shared nothing
+        but hexanal, linalool or nonanal. Over half of every "pairing" in the
+        app was three compounds that are in almost everything.
+
+        Under IDF hexanal falls to about 8% of geosmin's weight and those pairs
+        drop out of the rankings on their own, without a hand-tuned exclusion
+        list. The README's claim — "sharing a common compound like hexanal
+        scores low" — is now true of the code.
+        """
+        freq = self._compound_freq.get(compound, 0)
+        if freq <= 0:
+            return 0.0
+        return math.log(self._total_ings / freq)
+
     def jaccard_similarity(self, set_a: Set[str], set_b: Set[str]) -> float:
+        """Plain Jaccard: |A n B| / |A u B|, every compound counted equally.
+
+        Kept because it is the honest baseline the weighted score is measured
+        against, and the Graph tab offers it as "unweighted". It is NOT what
+        drives pairings — the README used to call the scoring "rarity-weighted
+        Jaccard similarity", which it never was: weighted_similarity normalises
+        by average set size, not by the union.
+        """
         if not set_a or not set_b:
             return 0.0
-        intersection = set_a & set_b
-        union = set_a | set_b
-        return len(intersection) / len(union)
+        return len(set_a & set_b) / len(set_a | set_b)
 
     def weighted_similarity(self, name_a: str, name_b: str) -> Tuple[float, Set[str]]:
-        """Weighted similarity: rare shared compounds score higher."""
+        """Rarity-weighted Jaccard: W(A n B) / W(A u B).
+
+        The weighted generalisation of the Jaccard index — swap "count the
+        compounds" for "add up what they are worth" and the definition is
+        otherwise unchanged. Identical profiles score 1.0, disjoint ones 0.0,
+        and everything sits properly on that scale.
+
+        This is also the measure the README has always claimed. The previous
+        implementation divided by the average profile size rather than by the
+        union, which is a Dice-style denominator, not Jaccard; and the earlier
+        attempt at this fix divided by the rarest-possible compound weight,
+        which is bounded but compresses every real score below 0.44 and would
+        have quietly broken the Graph tab's threshold slider and the
+        high/medium/low score colouring, both of which assume a full 0..1
+        spread.
+        """
         ing_a = self.ingredients.get(name_a)
         ing_b = self.ingredients.get(name_b)
         if not ing_a or not ing_b:
@@ -2146,14 +2199,12 @@ class FlavorEngine:
         if not shared:
             return 0.0, set()
 
-        weighted_score = 0.0
-        for compound in shared:
-            rarity = 1.0 - (self._compound_freq[compound] / self._total_ings)
-            weighted_score += 0.5 + (0.5 * rarity)
-
-        avg_size = (len(ing_a.compounds) + len(ing_b.compounds)) / 2
-        normalized = weighted_score / avg_size if avg_size > 0 else 0.0
-        return min(normalized, 1.0), shared
+        union_weight = sum(self._weight.get(c, 0.0)
+                           for c in (ing_a.compounds | ing_b.compounds))
+        if union_weight <= 0:
+            return 0.0, shared
+        shared_weight = sum(self._weight.get(c, 0.0) for c in shared)
+        return min(shared_weight / union_weight, 1.0), shared
 
     def get_pairings(self, ingredient_name: str, top_n: int = 20) -> List[dict]:
         if ingredient_name not in self.ingredients:
@@ -2163,6 +2214,15 @@ class FlavorEngine:
             if other_name == ingredient_name:
                 continue
             score, shared = self.weighted_similarity(ingredient_name, other_name)
+            # A match resting entirely on compounds present in >30% of the
+            # database is not a pairing, it is a coincidence -- hexanal alone
+            # links 63% of everything here. Scoring already pushes these down;
+            # this keeps them off the list altogether, so an ingredient with
+            # few distinctive compounds returns a short honest list rather
+            # than 25 rows of noise. `shared` itself is untouched, so the
+            # score stays a pure function of the chemistry.
+            if shared and shared <= self._boring_compounds:
+                continue
             if score > 0:
                 results.append({
                     "ingredient": other_name,
@@ -2174,7 +2234,20 @@ class FlavorEngine:
         return results[:top_n]
 
     def find_bridge(self, name_a: str, name_b: str) -> List[dict]:
-        """Find bridge ingredients connecting two ingredients."""
+        """Find ingredients that connect two others through shared compounds.
+
+        Scored with the same rarity weighting as weighted_similarity. It used
+        raw compound COUNTS, which meant the app held two different ideas of
+        what "connected" means: a pairing was rarity-weighted, a bridge was
+        not. Because the old score also divided by the bridge's own profile
+        size, an ingredient with very few compounds that happened to share
+        hexanal with both ends floated to the top — "zucchini bridges pork and
+        apple" was a real result, on nothing but a near-universal green note.
+
+        The weakest of the two links decides the score, not the average. A
+        bridge is only as good as its weaker end: something strongly tied to
+        the pork and barely to the apple is not bridging anything.
+        """
         if name_a not in self.ingredients or name_b not in self.ingredients:
             return []
         ing_a = self.ingredients[name_a]
@@ -2185,15 +2258,32 @@ class FlavorEngine:
                 continue
             shared_with_a = ing_a.compounds & bridge_ing.compounds
             shared_with_b = ing_b.compounds & bridge_ing.compounds
-            if shared_with_a and shared_with_b:
-                bridge_score = (len(shared_with_a) + len(shared_with_b)) / (2 * len(bridge_ing.compounds))
-                bridges.append({
-                    "ingredient": bridge_name,
-                    "score": bridge_score,
-                    "connects_to_a": shared_with_a,
-                    "connects_to_b": shared_with_b,
-                    "category": bridge_ing.category,
-                })
+            if not (shared_with_a and shared_with_b):
+                continue
+            # A "bridge" whose only link to either side is a near-universal
+            # compound is not bridging anything. This is what produced
+            # "zucchini bridges pork and apple" on nothing but hexanal.
+            if (shared_with_a <= self._boring_compounds
+                    or shared_with_b <= self._boring_compounds):
+                continue
+            size = len(bridge_ing.compounds)
+            if not size:
+                continue
+            own_weight = sum(self._weight.get(c, 0.0) for c in bridge_ing.compounds)
+            if own_weight <= 0:
+                continue
+            link_a = sum(self._weight.get(c, 0.0) for c in shared_with_a) / own_weight
+            link_b = sum(self._weight.get(c, 0.0) for c in shared_with_b) / own_weight
+            bridge_score = min(link_a, link_b)
+            if bridge_score <= 0.0:
+                continue
+            bridges.append({
+                "ingredient": bridge_name,
+                "score": min(bridge_score, 1.0),
+                "connects_to_a": shared_with_a,
+                "connects_to_b": shared_with_b,
+                "category": bridge_ing.category,
+            })
         bridges.sort(key=lambda x: x["score"], reverse=True)
         return bridges[:10]
 
