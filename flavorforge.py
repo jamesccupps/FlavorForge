@@ -2083,30 +2083,62 @@ SLOT_CAT_MAP = {
     "dressing": ["fermented"],
 }
 
-def get_slot_candidates(slot: str, exclude: set = None) -> List[str]:
-    """Get valid ingredient keys for a template slot, handling subtypes."""
-    exclude = exclude or set()
+# Slot subtypes that come from an explicit ingredient set rather than from a
+# category. A stock is not a pizza sauce is not a vinaigrette, and flour is not
+# something to serve as the grain.
+_SLOT_SUBSETS = {
+    "noodle": GRAIN_NOODLES,
+    "bread": GRAIN_BREADS,
+    "rice_type": GRAIN_RICE,
+    "grain": EDIBLE_GRAINS,       # excludes flour and cornstarch on purpose
+    "broth": BROTH_TYPES,
+    "cooking_sauce": COOKING_SAUCES,
+    "dressing": DRESSINGS,
+}
 
-    # Grain subtypes
-    if slot == "noodle":
-        return [n for n in GRAIN_NOODLES if n in INGREDIENTS and n not in exclude]
-    elif slot == "bread":
-        return [n for n in GRAIN_BREADS if n in INGREDIENTS and n not in exclude]
-    elif slot == "rice_type":
-        return [n for n in GRAIN_RICE if n in INGREDIENTS and n not in exclude]
-    elif slot == "grain":
-        # Exclude flour/cornstarch from generic grain slot
-        return [n for n in EDIBLE_GRAINS if n in INGREDIENTS and n not in exclude]
-    elif slot == "broth":
-        return [n for n in BROTH_TYPES if n in INGREDIENTS and n not in exclude]
-    elif slot == "cooking_sauce":
-        return [n for n in COOKING_SAUCES if n in INGREDIENTS and n not in exclude]
-    elif slot == "dressing":
-        return [n for n in DRESSINGS if n in INGREDIENTS and n not in exclude]
+_SLOT_CANDIDATES: Dict[str, List[str]] = {}
 
-    # Normal category-based filtering
+
+def _compute_slot_candidates(slot: str) -> List[str]:
+    if slot in _SLOT_SUBSETS:
+        return sorted(n for n in _SLOT_SUBSETS[slot] if n in INGREDIENTS)
     valid_cats = SLOT_CAT_MAP.get(slot, list(CATEGORIES.keys()))
-    return [n for n, i in INGREDIENTS.items() if i.category in valid_cats and n not in exclude]
+    return sorted(n for n, i in INGREDIENTS.items() if i.category in valid_cats)
+
+
+def slot_candidates_cached(slot: str) -> List[str]:
+    """Every ingredient a slot can hold, computed once per slot.
+
+    generate_recipe tries 60 templates per call and surprise_me calls it 40
+    times, so this was rebuilt roughly 8,700 times per Surprise Me — each a
+    full scan of all 303 ingredients, and 57% of the wall time of the whole
+    operation. The database is immutable at runtime, so once is enough.
+    """
+    cached = _SLOT_CANDIDATES.get(slot)
+    if cached is None:
+        cached = _compute_slot_candidates(slot)
+        _SLOT_CANDIDATES[slot] = cached
+    return cached
+
+
+_SLOT_CANDIDATE_SETS: Dict[str, Set[str]] = {}
+
+
+def slot_candidate_set(slot: str) -> Set[str]:
+    """Membership-test form of the above, for "can this slot hold X"."""
+    cached = _SLOT_CANDIDATE_SETS.get(slot)
+    if cached is None:
+        cached = set(slot_candidates_cached(slot))
+        _SLOT_CANDIDATE_SETS[slot] = cached
+    return cached
+
+
+def get_slot_candidates(slot: str, exclude: set = None) -> List[str]:
+    """Valid ingredient keys for a template slot, handling subtypes."""
+    candidates = slot_candidates_cached(slot)
+    if not exclude:
+        return list(candidates)
+    return [n for n in candidates if n not in exclude]
 
 
 class FlavorEngine:
@@ -2316,6 +2348,23 @@ class FlavorEngine:
         else:
             templates = DISH_TEMPLATES
 
+        # Then, if the user named a seed, keep only templates that have a slot
+        # able to hold it. Without this the template is chosen at random and
+        # the seed is placed afterwards, so it lands somewhere valid only if it
+        # happens to fit — measured at 35% of the time. The other 65% fell
+        # through to the "accent" fallback below, which is how asking for a
+        # salmon recipe produced a mushroom soup with salmon bolted on beside
+        # it. Olive oil failed 30 times out of 30.
+        #
+        # Dish type wins if the two filters disagree: it is the more explicit
+        # request, and the accent fallback still honours the seed.
+        if seed_ingredient:
+            fitting = [t for t in templates
+                       if any(seed_ingredient in slot_candidate_set(s)
+                              for s in t["structure"])]
+            if fitting:
+                templates = fitting
+
         best_recipe = None
         best_novelty = -1
 
@@ -2324,39 +2373,30 @@ class FlavorEngine:
             chosen = {}
 
             if seed_ingredient:
-                seed_cat = self.ingredients[seed_ingredient].category
+                # Place the user's seed in the first slot that can legitimately
+                # hold it: a required slot for preference, then any other.
+                #
+                # This used to consult two dict literals rebuilt on every one
+                # of the 60 iterations, each a partial copy of SLOT_CAT_MAP
+                # that had already drifted from it — the primary map had no
+                # entry for citrus, and carried a "sauce" slot that no template
+                # uses. Worse, neither understood the subtype slots, so a grain
+                # seed could be placed in a `noodle` slot and quinoa would be
+                # served as the noodle. Asking get_slot_candidates is
+                # authoritative by construction and cannot drift.
                 placed = False
-                for slot in template["needs"]:
-                    cat_map = {
-                        "protein": ["protein", "seafood"],
-                        "vegetable": ["vegetable"],
-                        "fruit": ["fruit", "citrus"],
-                        "nut": ["nut"],
-                        "mushroom": ["mushroom"],
-                        "grain": ["grain"],
-                        "legume": ["legume"],
-                        "allium": ["allium"],
-            "sauce": ["sauce"],
-                    }
-                    if slot in cat_map and seed_cat in cat_map[slot]:
+                ordered = list(template["needs"]) + [
+                    s for s in template["structure"] if s not in template["needs"]]
+                for slot in ordered:
+                    if seed_ingredient in slot_candidate_set(slot):
                         chosen[slot] = seed_ingredient
                         placed = True
                         break
                 if not placed:
-                    # Try secondary slots
-                    for slot in template["structure"]:
-                        cat_map2 = {
-                            "herb": ["herb"], "spice": ["spice"],
-                            "fermented": ["fermented"], "accent": ["spice", "fermented", "sweetener", "citrus"],
-                            "cheese": ["dairy"], "sweetener": ["sweetener"],
-                            "citrus": ["citrus"],
-                        }
-                        if slot in cat_map2 and seed_cat in cat_map2[slot]:
-                            chosen[slot] = seed_ingredient
-                            placed = True
-                            break
-                    if not placed:
-                        chosen["accent"] = seed_ingredient
+                    # No slot in this template can hold it. Honour the request
+                    # anyway — the user asked for this ingredient — as a
+                    # free-floating accent the display still lists.
+                    chosen["accent"] = seed_ingredient
 
             for slot in template["structure"]:
                 if slot in chosen:
