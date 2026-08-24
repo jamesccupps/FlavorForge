@@ -2,7 +2,7 @@
 
 **A procedural cooking engine that generates novel recipes using molecular flavor science, texture pairing, and taste balance analysis — with optional AI Chef integration.**
 
-FlavorForge doesn't just mash random ingredients together. It uses a database of 297 real ingredients mapped to 84 aroma compounds (linalool, furaneol, methylpyrazine, etc.) to find scientifically-grounded flavor pairings. Then it layers on texture contrast analysis and taste balance checking to make sure the dish actually works.
+FlavorForge doesn't just mash random ingredients together. It uses a database of 303 real ingredients mapped to 82 aroma compounds (linalool, furaneol, methylpyrazine, etc.) to find scientifically-grounded flavor pairings. Then it layers on texture contrast analysis and taste balance checking to make sure the dish actually works.
 
 Send the result to your local Ollama instance or Claude API, and the AI gets a prompt loaded with molecular pairing data, texture gaps, taste balance issues, and cuisine direction — so it generates a recipe that's both creative and cookable.
 
@@ -58,7 +58,7 @@ Save AI-generated recipes as text files to `~/FlavorForge_Recipes/`.
 
 ## The Database
 
-297 ingredients across 17 categories, 84 aroma compounds, 1,632 flavor links.
+303 ingredients across 17 categories, 82 aroma compounds, 1,668 ingredient-compound links.
 
 | Category | Count | Examples |
 |---|---|---|
@@ -180,8 +180,8 @@ FlavorForge saves user data to your home directory:
 ## Project Stats
 
 - **4,874 lines** of Python
-- **297 ingredients** across 17 categories
-- **84 aroma compounds** with descriptions
+- **303 ingredients** across 17 categories
+- **82 aroma compounds** with descriptions
 - **1,632 flavor links**
 - **102 recipe templates** across 16 dish types
 - **24 slot types** including grain, sauce, and broth subtypes

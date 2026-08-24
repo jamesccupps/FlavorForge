@@ -333,3 +333,59 @@ def test_every_used_slot_has_a_display_role(ffmod):
     labelled = set(re.findall(r'"([a-z_]+)":', block))
     used = {s for t in ffmod.DISH_TEMPLATES for s in t["structure"]}
     assert not (used - labelled), f"slots with no display label: {sorted(used - labelled)}"
+
+
+# ─── the science, not just the plumbing ────────────────────────────────
+
+def test_no_compound_is_defined_but_unused(ffmod):
+    """A compound with a description and no ingredient is dead weight in a
+    database whose entire value is the mapping. Seven were orphaned, and at
+    least one had clearly been written FOR a specific ingredient and never
+    wired to it — chavicol's own description reads "basil, spicy, warm" while
+    basil did not have it."""
+    used = {c for ing in ffmod.INGREDIENTS.values() for c in ing.compounds}
+    orphans = sorted(set(ffmod.COMPOUNDS) - used)
+    assert not orphans, f"compounds defined but attached to nothing: {orphans}"
+
+
+def test_override_tables_reference_real_ingredients(ffmod):
+    """An override keyed on an ingredient that does not exist never applies —
+    the lookup falls through to the category default and the data looks
+    present. Both ghosts here (squid, arugula) turned out to be evidence that
+    the ingredient was meant to exist, so they were added rather than the
+    overrides deleted."""
+    ghosts = {}
+    for tbl_name in ("TEXTURE_OVERRIDES", "TASTE_OVERRIDES"):
+        missing = [k for k in getattr(ffmod, tbl_name) if k not in ffmod.INGREDIENTS]
+        if missing:
+            ghosts[tbl_name] = missing
+    assert not ghosts, f"overrides for non-existent ingredients: {ghosts}"
+
+
+def test_the_overrides_that_were_dead_now_apply(ffmod):
+    assert ffmod.get_textures("squid") == ["chewy", "tender"]
+    assert ffmod.get_taste_profile("arugula") == {"bitter": 0.5, "spicy": 0.3}
+
+
+def test_2_acetyl_1_pyrroline_is_not_filed_as_a_pyrazine(ffmod):
+    """A pyrroline is a five-membered ring with one nitrogen; a pyrazine is
+    six-membered with two. In a database whose selling point is the chemistry,
+    filing one as the other is a straightforward error — and the category is
+    what colours the node in the graph."""
+    assert ffmod.COMPOUNDS["acetyl_pyrroline"].category == "pyrroline"
+
+
+def test_the_compounds_written_for_an_ingredient_reach_it(ffmod):
+    """Each of these was defined with a description naming its source and then
+    left unattached. The description is the assertion."""
+    expected = {
+        "basil": "chavicol",
+        "cherry": "acetophenone",
+        "jasmine_rice": "indole",
+        "black_tea": "linalool_oxide",
+        "red_wine": "whiskey_lactone",
+    }
+    for ing, compound in expected.items():
+        assert ing in ffmod.INGREDIENTS, f"{ing} is not an ingredient"
+        assert compound in ffmod.INGREDIENTS[ing].compounds, \
+            f"{ing} should carry {compound}"

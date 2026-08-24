@@ -3,7 +3,7 @@
 FlavorForge - Procedural Cooking Engine v3.0
 Generates novel recipes based on molecular flavor compound pairing theory.
 Uses real aroma compound data to find scientifically-grounded ingredient combinations.
-297 ingredients, 84 compounds, 102 templates across 16 dish types.
+303 ingredients, 82 compounds, 102 templates across 16 dish types.
 AI Chef integration (Ollama / Claude API) for full recipe generation.
 
 Author: James Cupps
@@ -53,6 +53,7 @@ COMPOUND_CATEGORIES = {
     "alcohol": "#E91E63",
     "lactone": "#8BC34A",
     "pyrazine": "#795548",
+    "pyrroline": "#6D4C41",
     "furanone": "#FF5722",
     "thiazole": "#607D8B",
     "amine": "#CDDC39",
@@ -106,7 +107,6 @@ COMPOUNDS = {
     "isoamyl_acetate": Compound("isoamyl acetate", "ester", "banana, pear"),
     "methyl_anthranilate": Compound("methyl anthranilate", "ester", "grape, concord"),
     "ethyl_hexanoate": Compound("ethyl hexanoate", "ester", "apple, fruity, wine"),
-    "methyl_salicylate": Compound("methyl salicylate", "ester", "wintergreen, minty"),
     "ethyl_cinnamate": Compound("ethyl cinnamate", "ester", "cinnamon, balsamic, fruity"),
     # ── Ketones ──
     "diacetyl": Compound("diacetyl", "ketone", "buttery, creamy"),
@@ -136,7 +136,10 @@ COMPOUNDS = {
     "methoxypyrazine": Compound("methoxypyrazine", "pyrazine", "green bell pepper, earthy"),
     "methylpyrazine": Compound("methylpyrazine", "pyrazine", "roasted, nutty, cocoa"),
     "acetylpyrazine": Compound("acetylpyrazine", "pyrazine", "popcorn, roasted, bread crust"),
-    "acetyl_pyrroline": Compound("2-acetyl-1-pyrroline", "pyrazine", "basmati rice, popcorn, pandan"),
+    # A pyrroline, not a pyrazine: five-membered ring with one nitrogen,
+    # against six with two. Filed under pyrazine it was the wrong class of
+    # molecule in a database whose selling point is the chemistry.
+    "acetyl_pyrroline": Compound("2-acetyl-1-pyrroline", "pyrroline", "basmati rice, popcorn, pandan"),
     # ── Furanones ──
     "furaneol": Compound("furaneol", "furanone", "strawberry, caramel, sweet"),
     "sotolon": Compound("sotolon", "furanone", "maple, curry, fenugreek"),
@@ -158,7 +161,6 @@ COMPOUNDS = {
     # ── Amines ──
     "trimethylamine": Compound("trimethylamine", "amine", "fishy, marine, briny"),
     "indole": Compound("indole", "amine", "floral, jasmine (low conc), fecal (high)"),
-    "skatole": Compound("skatole", "amine", "floral, orange blossom (trace), fecal (high)"),
     # ── Other ──
     "capsaicin": Compound("capsaicin", "other", "hot, burning, chili heat"),
     "piperine": Compound("piperine", "other", "sharp, biting, pepper heat"),
@@ -386,7 +388,8 @@ INGREDIENTS = {
         {"linalool", "hexanal", "geraniol", "citric_acid", "malic_acid", "ethyl_acetate"},
         ["raw", "juice", "reduce", "garnish"], "tart, fruity, complex, jewel-like"),
     "cherry": Ingredient("cherry", "fruit",
-        {"benzaldehyde", "linalool", "eugenol", "hexanal", "ethyl_acetate", "malic_acid"},
+        {"benzaldehyde", "linalool", "eugenol", "hexanal", "ethyl_acetate", "malic_acid",
+         "acetophenone"},
         ["raw", "bake", "jam", "poach", "dry"], "sweet-tart, almond, rich"),
     "passion_fruit": Ingredient("passion fruit", "fruit",
         {"ethyl_butyrate", "linalool", "hexanal", "ethyl_hexanoate", "ionone", "geraniol"},
@@ -409,7 +412,8 @@ INGREDIENTS = {
 
     # ═══════════════ HERBS ═══════════════
     "basil": Ingredient("basil", "herb",
-        {"linalool", "eugenol", "myrcene", "pinene", "geraniol", "limonene", "estragole"},
+        {"linalool", "eugenol", "myrcene", "pinene", "geraniol", "limonene", "estragole",
+         "chavicol"},
         ["raw", "chiffonade", "infuse", "pesto"], "sweet, peppery, anise"),
     "cilantro": Ingredient("cilantro", "herb",
         {"linalool", "decanal", "geraniol", "pinene", "citral"},
@@ -712,7 +716,7 @@ INGREDIENTS = {
         {"hexanal", "nonanal", "acetylpyrazine", "maltol", "acetyl_pyrroline"},
         ["boil", "steam", "fry", "toast"], "mild, starchy, fluffy"),
     "jasmine_rice": Ingredient("jasmine rice", "grain",
-        {"acetyl_pyrroline", "hexanal", "nonanal", "linalool", "maltol"},
+        {"acetyl_pyrroline", "hexanal", "nonanal", "linalool", "maltol", "indole"},
         ["steam", "boil", "coconut"], "floral, fragrant, soft, aromatic"),
     "basmati_rice": Ingredient("basmati rice", "grain",
         {"acetyl_pyrroline", "hexanal", "nonanal", "linalool", "myrcene"},
@@ -1155,6 +1159,40 @@ INGREDIENTS = {
     "romaine": Ingredient("romaine lettuce", "vegetable",
         {"hexanal", "nonanal", "trans_2_nonenal", "linalool", "dimethyl_sulfide"},
         ["raw", "grill", "wrap", "chop"], "crisp, mild, crunchy, watery, sturdy"),
+
+    # ═══════════ GAPS CLOSED IN 3.1 ═══════════
+    # Two of these existed already as far as the override tables were
+    # concerned: TEXTURE_OVERRIDES carried an entry for "squid" and
+    # TASTE_OVERRIDES one for "arugula", neither of which was an ingredient.
+    # The overrides were dead keys and the evidence that both were meant to be
+    # here. The rest close obvious holes (no bay leaf in a cooking app) or give
+    # a defined-but-unattached compound its real home.
+    "bay_leaf": Ingredient("bay leaf", "herb",
+        {"eucalyptol", "eugenol", "pinene", "linalool", "terpinene", "sabinene"},
+        ["simmer", "braise", "infuse", "steep"],
+        "resinous, tea-like, subtly medicinal — a background note you notice when it is gone"),
+    "marjoram": Ingredient("marjoram", "herb",
+        {"terpinene", "sabinene", "linalool", "eucalyptol", "ocimene", "thymol"},
+        ["dried", "infuse", "sprinkle", "roast"],
+        "sweeter and softer than oregano, floral-herbal"),
+    "arugula": Ingredient("arugula", "vegetable",
+        {"allyl_isothiocyanate", "hexanal", "1_octen_3_ol", "nonanal"},
+        ["raw", "wilt", "top", "blend"],
+        "peppery, bitter, mustardy — the glucosinolate bite"),
+    "squid": Ingredient("squid", "seafood",
+        {"trimethylamine", "dimethyl_sulfide", "methional", "hexanal", "thiophene"},
+        ["fry", "grill", "braise", "sear", "poach"],
+        "sweet, mild, briny — chewy unless cooked very fast or very slow"),
+    "black_tea": Ingredient("black tea", "fermented",
+        {"linalool_oxide", "linalool", "geraniol", "damascenone", "methional",
+         "phenylacetaldehyde"},
+        ["steep", "infuse", "smoke", "braise"],
+        "tannic, malty, floral — the oxidised-leaf aroma"),
+    "red_wine": Ingredient("red wine", "fermented",
+        {"damascenone", "whiskey_lactone", "ethyl_hexanoate", "tartaric_acid",
+         "phenethyl_alcohol", "rotundone"},
+        ["reduce", "braise", "deglaze", "marinate"],
+        "tannic, dark-fruited, oaky — rotundone gives the peppery reds their pepper"),
 }
 
 # ═══════════════════════════════════════════════════════════════════
