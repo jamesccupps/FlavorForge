@@ -1,5 +1,115 @@
 # Changelog
 
+## [3.1.0] — 2026-08-24
+
+Acts on an independent audit of 3.0. Two changes alter results you may have
+relied on — see **Changed** first.
+
+### Changed
+
+- **Pairing scores are now inverse-document-frequency weighted, which changes
+  every number the app displays.** The old weight was `0.5 + 0.5 × rarity`.
+  Monotonic, so it looked right, but the constant floor swamped the rarity
+  term: hexanal, present in 63% of the database, scored 0.68 against a ceiling
+  of 1.0 — 70% of what a compound found in a single ingredient was worth.
+  Measured before the change: of the 31,387 ingredient pairs the app reported
+  as connected, 16,501 — **52.6%** — shared nothing but hexanal, linalool or
+  nonanal. Over half of every "pairing" was three compounds that are in almost
+  everything. Under IDF, hexanal is worth 8% of a unique compound.
+- **The similarity is now genuinely Jaccard**, weighted shared over weighted
+  union. It never was: it divided by the average profile size, while the README
+  has called it "rarity-weighted Jaccard similarity" since 1.0. Identical
+  profiles now score 1.0, as they should.
+- **Ranked lists drop matches resting entirely on compounds present in >30% of
+  the database.** The filter works on the shared *set*, not a score threshold,
+  because a threshold cannot do the job — 83.6% of pairs with a genuinely
+  distinctive shared compound score below the highest ubiquitous-only pair.
+- **`find_bridge` is rarity-weighted too.** It used raw compound counts and
+  divided by the bridge's own profile size, so a small ingredient sharing
+  hexanal with both ends floated to the top. "Zucchini bridges pork and apple"
+  was a real result. A bridge is now scored by the weaker of its two links.
+
+What this does to real queries: garlic → onion reaches the top five;
+`mushroom_button` surfaces eggplant, chanterelle, walnut and morel on
+1-octen-3-ol, where it previously returned ten rows of hexanal coincidence;
+pork/apple bridges are parmesan, vinegar and black tea on diacetyl and
+methional.
+
+### Added
+
+- **A command line.** The engine could only be driven through 2,000 lines of
+  Tk — not scriptable, not usable over SSH, not usable at all without a GUI
+  toolkit. `--pair`, `--substitute`, `--bridge`, `--compound`, `--recipe`,
+  `--list`. No arguments still starts the GUI. The tkinter import is guarded,
+  so the data, engine and CLI load on a headless box.
+- **Substitutions.** A different question from a pairing: a pairing goes *with*
+  an ingredient, a substitute stands *in* for it. Same category, and the same
+  subtype where there is one, so a stock is never offered in place of a
+  vinaigrette. Aroma matches rank above role-only matches, and role-only
+  matches say so. In the Pairing tab and on the CLI.
+- **Compound lookup.** The database could only be read one way — pick an
+  ingredient, see its compounds. `--compound geosmin` answers the other half,
+  or searches names and descriptions.
+- **A model picker for the AI Chef**, with Claude Opus 5, Sonnet 5 and
+  Haiku 4.5, so the model cannot go stale in a source constant again.
+- **Six ingredients**: bay leaf, marjoram, arugula, squid, black tea, red wine.
+- **171 tests and CI** on Linux and Windows across Python 3.10–3.13. The
+  repository previously had none.
+- `pyproject.toml`, a `flavorforge` console script, and `--version`.
+
+### Fixed
+
+- **No generated recipe could contain a cooking fat.** The `oil` slot was
+  declared and used by none of the 102 templates, so 0 of 3 oil/fat
+  ingredients could ever be selected — while `_add_staples` listed olive oil
+  as a pantry staple and `analyze_balance` advised "Needs richness — add
+  butter, oil", advice the generator could not take.
+- **65% of seeded recipes bolted the seed on as an "accent".** A template was
+  chosen at random and the seed placed afterwards, so it landed in a real slot
+  only if it happened to fit. Asking for a salmon recipe produced a mushroom
+  soup with salmon beside it; olive oil failed 30 times out of 30. Now 0 of
+  300.
+- **Seven compounds were defined and attached to no ingredient** — 8% of the
+  database was inert. chavicol's own description reads "basil, spicy, warm"
+  and basil did not have it. Each is now attached where the chemistry puts it
+  (chavicol → basil, acetophenone → cherry, indole → jasmine rice,
+  linalool_oxide → black tea, whiskey_lactone → red wine) or removed, for the
+  two with no honest home in this database.
+- **Two override tables were keyed on ingredients that did not exist**, so
+  they silently never applied. Both were evidence the ingredient was meant to
+  be here; squid and arugula are now in.
+- **2-acetyl-1-pyrroline was filed as a pyrazine.** It is a pyrroline — five
+  atoms and one nitrogen against six and two.
+- **The module docstring was three versions stale**: 190 ingredients where
+  there were 297, 77 templates where there were 102, and a dish-type count
+  that included the "Any" filter. Now asserted against the data.
+- **The AI Chef was pinned to `claude-sonnet-4-20250514`**, three model
+  generations old. A config saved by 3.0 is migrated forward on load rather
+  than 404-ing on the first generation.
+- **Claude responses did not stream** while Ollama's did, so the same tab
+  behaved completely differently by provider — thirty seconds of spinner, then
+  everything at once.
+- **A truncated recipe looked finished.** `stop_reason` was never inspected, so
+  a response cut off at the token ceiling simply stopped mid-step. `max_tokens`
+  also rises from 4096 to 16000.
+- **All three home-directory files truncated in place.** The pantry, the saved
+  recipes and the config — which holds the API key — are now written to a temp
+  file and atomically replaced. The config is owner-only on POSIX. Reads
+  tolerate a byte-order mark, which Notepad writes and plain UTF-8 rejects.
+- **The UDP-style slot maps inside `generate_recipe`** duplicated
+  `SLOT_CAT_MAP`, had drifted from it, were rebuilt on every one of 60
+  iterations, and did not understand subtypes — a grain seed could be placed
+  in a noodle slot.
+- README corrections: coffee and chocolate share 7 compounds, not 6, and
+  gamma-decalactone is in 5.7% of the database, not "<5%".
+
+### Performance
+
+- Slot candidate lists are computed once per slot rather than rebuilt on every
+  lookup — 8,715 full scans of the ingredient database per Surprise Me, 57% of
+  its wall time. Surprise Me 102 ms → 41 ms; `generate_recipe` 2.39 ms →
+  0.87 ms.
+
 ## v3.0.0 (2026-04-14)
 
 ### Major Features

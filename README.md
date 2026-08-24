@@ -52,6 +52,39 @@ Save AI-generated recipes as text files to `~/FlavorForge_Recipes/`.
 
 ---
 
+### 🔄 Substitutions
+Out of parmesan? The Pairing tab now ends with what to use instead. A substitute is a different question from a pairing — a pairing goes *with* an ingredient, a substitute has to stand *in* for it — so suggestions come from the same category, and from the same subtype where there is one. You will never be offered chicken stock in place of a vinaigrette, or orzo in place of a baguette. Suggestions that share real aroma compounds rank above ones that only fill the same role, and the ones that only fill the same role say so.
+
+### ⌨ Command Line
+The engine no longer requires the GUI. Useful for scripting, for a headless box, or just for a quick answer:
+
+```bash
+flavorforge --pair garlic                        # top molecular pairings
+flavorforge --substitute parmesan                # what to use instead
+flavorforge --bridge chocolate salmon            # what connects two ingredients
+flavorforge --compound geosmin                   # everything carrying a compound
+flavorforge --compound mushroom                  # ...or search for the compound
+flavorforge --recipe --seed salmon --dish-type Soup
+flavorforge --list --category mushroom
+```
+
+Run it with no arguments and you get the GUI, exactly as before.
+
+```
+$ flavorforge --substitute parmesan -n 4
+parmesan  [dairy]  sharp, savory, crystalline
+compounds: acetic acid, acetoin, butyric acid, diacetyl, ethyl butyrate, hexanal, methylpyrazine
+
+  ingredient              score  shared aroma
+  pecorino                0.755  butyric acid, acetic acid, acetoin, diacetyl
+  feta                    0.560  butyric acid, acetic acid, acetoin, diacetyl
+  cheddar                 0.489  butyric acid, acetoin, diacetyl, methylpyrazine
+  gruyere                 0.484  butyric acid, acetoin, diacetyl, methylpyrazine
+```
+
+### 🔬 Compound Lookup
+The database is a mapping and could only ever be read one way: pick an ingredient, see its compounds. *What else tastes of geosmin?* is the more interesting half, and `--compound` answers it — exactly, or by searching compound names and descriptions.
+
 ## Screenshot
 
 ![FlavorForge main window](docs/screenshots/main-window.png)
@@ -96,8 +129,12 @@ One-Pot, Pasta & Noodles, Stir-Fry & Wok, Curry & Stew, Tacos & Wraps, Bowl, Sou
 ```bash
 git clone https://github.com/jamesccupps/FlavorForge.git
 cd FlavorForge
-python flavorforge.py
+python flavorforge.py            # the GUI
+python flavorforge.py --help     # or the command line
 ```
+
+tkinter is only needed for the GUI. The database, the engine and the CLI run
+without it, so a headless server can still answer `--pair` and `--recipe`.
 
 ### Windows
 Download and double-click `flavorforge.py`, or:
@@ -135,12 +172,24 @@ FlavorForge works standalone — the AI Chef tab is optional.
 4. Hit "Test" → "Save"
 
 ### Claude API (Anthropic)
-1. Get an API key from [console.anthropic.com](https://console.anthropic.com)
-2. In FlavorForge → AI Chef tab → switch provider to "anthropic"
-3. Paste your API key
-4. Hit "Save"
+1. Get a key at [console.anthropic.com](https://console.anthropic.com)
+2. AI Chef tab → Provider: `anthropic` → paste the key → **Save**
+3. Pick a model from the dropdown:
 
----
+| Model | When |
+|---|---|
+| `claude-opus-5` | most capable — best recipes, highest cost (default) |
+| `claude-sonnet-5` | strong and cheaper — a good everyday default |
+| `claude-haiku-4-5` | fastest and cheapest |
+
+Responses stream, so the recipe types itself out rather than appearing all at
+once after a wait. If one is ever cut short by the token limit, it says so
+instead of just stopping mid-step.
+
+The key is stored in `~/.flavorforge_config.json`, written owner-only on
+Linux and macOS. It is sent to `api.anthropic.com` and nowhere else. The
+integration uses `urllib` rather than the official SDK so that FlavorForge
+stays one file you can run against a stock Python.
 
 ## How It Works
 
@@ -192,6 +241,7 @@ FlavorForge saves user data to your home directory:
 - **82 aroma compounds** with descriptions
 - **1,632 flavor links**
 - **102 recipe templates** across 16 dish types
+- **172 tests**, run on Linux and Windows across Python 3.10–3.13
 - **24 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter

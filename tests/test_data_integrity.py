@@ -389,3 +389,52 @@ def test_the_compounds_written_for_an_ingredient_reach_it(ffmod):
         assert ing in ffmod.INGREDIENTS, f"{ing} is not an ingredient"
         assert compound in ffmod.INGREDIENTS[ing].compounds, \
             f"{ing} should carry {compound}"
+
+
+def test_the_readme_test_count_is_not_invented(ffmod):
+    """A README that states a test count should state the real one. This file
+    exists because the module docstring's counts were three versions stale;
+    the same discipline applies to a number I add myself — the first draft of
+    that line said 270 and the suite had 167."""
+    import re
+    import subprocess
+    import sys
+    readme = (SRC.parent / "README.md").read_text(encoding="utf-8")
+    m = re.search(r"\*\*(\d+) tests\*\*", readme)
+    if not m:
+        return                      # the claim was removed; nothing to check
+    out = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q",
+                          "-p", "no:cacheprovider", str(SRC.parent / "tests")],
+                         capture_output=True, text=True, timeout=300)
+    # pytest prints either a "N tests collected" summary or one line per file,
+    # depending on version. Handle both — the first draft of this test only
+    # handled the summary form, found nothing, and passed vacuously.
+    total = re.search(r"(\d+) tests? collected", out.stdout)
+    if total:
+        counted = int(total.group(1))
+    else:
+        per_file = re.findall(r"^\S+\.py:\s*(\d+)$", out.stdout, re.M)
+        assert per_file, "could not count tests from:\n" + out.stdout[-500:]
+        counted = sum(int(n) for n in per_file)
+    assert int(m.group(1)) == counted, (
+        f"README claims {m.group(1)} tests, collected {counted}")
+
+
+def test_the_version_is_stated_once_and_agrees_everywhere(ffmod):
+    """Three places declare it — the docstring, __version__ and
+    pyproject.toml — and nothing checked they matched. The docstring's
+    ingredient counts had already drifted three versions; the version number
+    is the same hazard."""
+    import re
+    doc_v = re.search(r"Version:\s*([\d.]+)", ffmod.__doc__)
+    assert doc_v, "the docstring no longer states a version"
+    assert doc_v.group(1) == ffmod.__version__
+
+    pyproject = (SRC.parent / "pyproject.toml").read_text(encoding="utf-8")
+    proj_v = re.search(r'^version\s*=\s*"([\d.]+)"', pyproject, re.M)
+    assert proj_v, "pyproject.toml no longer states a version"
+    assert proj_v.group(1) == ffmod.__version__, (
+        f"pyproject says {proj_v.group(1)}, module says {ffmod.__version__}")
+
+    changelog = (SRC.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert ffmod.__version__ in changelog, "the release has no changelog entry"

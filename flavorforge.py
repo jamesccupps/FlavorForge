@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-FlavorForge - Procedural Cooking Engine v3.0
+FlavorForge - Procedural Cooking Engine v3.1
 Generates novel recipes based on molecular flavor compound pairing theory.
 Uses real aroma compound data to find scientifically-grounded ingredient combinations.
 303 ingredients, 82 compounds, 102 templates across 16 dish types.
 AI Chef integration (Ollama / Claude API) for full recipe generation.
 
 Author: James Cupps
-Version: 3.0.0
+Version: 3.1.0
 """
 
 import ctypes
