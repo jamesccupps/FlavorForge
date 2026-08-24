@@ -2849,14 +2849,49 @@ class FlavorEngine:
 # AI CHEF - Ollama / Claude API integration
 # ═══════════════════════════════════════════════════════════════════
 
+# Claude models the AI Chef offers, newest first. A hard-coded default went
+# three model generations stale between 3.0 and 3.1 with nothing to catch it,
+# so the roster lives here as data and the AI tab renders it as a dropdown:
+# picking a current model is a choice the user can make without editing source.
+# (label, model id, note)
+CLAUDE_MODELS = [
+    ("Claude Opus 5", "claude-opus-5", "most capable — best recipes, highest cost"),
+    ("Claude Sonnet 5", "claude-sonnet-5", "strong and cheaper — a good default"),
+    ("Claude Haiku 4.5", "claude-haiku-4-5", "fastest and cheapest"),
+]
+DEFAULT_CLAUDE_MODEL = CLAUDE_MODELS[0][1]
+
+# A full recipe in the requested format — overview, ingredients, numbered
+# instructions, the science, a drink pairing and three tips — runs well past
+# 4096 tokens once the model is being genuinely specific. Streaming means a
+# large ceiling costs nothing in latency.
+CLAUDE_MAX_TOKENS = 16000
+
+
+def _restrict_permissions(path: str) -> None:
+    """Best-effort owner-only permissions on a file holding a secret.
+
+    The config carries the Anthropic API key in clear text. On POSIX a default
+    umask leaves it world-readable, which for a key that can spend money is
+    worth one chmod. Windows inherits the user's ACL from the home directory
+    and has no mode bits to set, so this is a no-op there — and it stays
+    best-effort either way, because failing to tighten permissions is not a
+    reason to fail to save.
+    """
+    try:
+        os.chmod(path, 0o600)
+    except (OSError, NotImplementedError, AttributeError):
+        pass
+
+
 class AIChef:
-    """Handles communication with Ollama or Claude API."""
+    """Handles communication with Ollama or the Claude API."""
 
     def __init__(self):
         self.ollama_url = "http://localhost:11434"
         self.ollama_model = "qwen2.5:14b"
         self.anthropic_key = ""
-        self.anthropic_model = "claude-sonnet-4-20250514"
+        self.anthropic_model = DEFAULT_CLAUDE_MODEL
         self.provider = "ollama"  # or "anthropic"
         self._load_config()
 
@@ -2874,6 +2909,17 @@ class AIChef:
                 self.provider = cfg.get("provider", self.provider)
         except (FileNotFoundError, json.JSONDecodeError):
             pass
+        except OSError:
+            pass          # unreadable config is not a reason to fail to start
+
+        # A model id saved by an older version may no longer exist. Rather
+        # than let the first generation fail with a 404 from the API, move it
+        # forward and say nothing -- the dropdown shows what is now selected.
+        if self.anthropic_model not in {m[1] for m in CLAUDE_MODELS}:
+            self.retired_model = self.anthropic_model
+            self.anthropic_model = DEFAULT_CLAUDE_MODEL
+        else:
+            self.retired_model = ""
 
     def save_config(self):
         cfg = {
@@ -2883,11 +2929,28 @@ class AIChef:
             "anthropic_model": self.anthropic_model,
             "provider": self.provider,
         }
+        path = self._config_path()
+        tmp = path + ".tmp"
         try:
-            with open(self._config_path(), "w") as f:
+            # Written to a temp file and moved into place. A crash partway
+            # through a plain open("w") leaves a truncated config, and this is
+            # the file that holds the API key — losing it silently on a bad
+            # shutdown is the worst version of that failure.
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, indent=2)
-        except Exception as e:
+            _restrict_permissions(tmp)
+            os.replace(tmp, path)
+            return True
+        except (OSError, TypeError, ValueError) as e:
+            # TypeError / ValueError: json.dump on a value it cannot encode.
+            # The old handler caught neither, despite the method promising in
+            # its own shape never to raise.
             print(f"Config save error: {e}")
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            return False
 
     def generate(self, prompt: str, callback=None, error_callback=None):
         """Generate response in a background thread. Calls callback with chunks."""
@@ -2928,40 +2991,96 @@ class AIChef:
                 error_callback(str(e))
 
     def _anthropic_generate(self, prompt, callback, error_callback):
+        """Stream a completion from the Claude API over the raw HTTP endpoint.
+
+        Streaming rather than a single blocking read, for three reasons: it
+        matches what the Ollama path already does, so the tab behaves the same
+        whichever provider is selected; the user sees the recipe arrive instead
+        of watching a spinner for half a minute; and a long generation cannot
+        hit an HTTP read timeout part-way through and lose everything.
+
+        urllib rather than the anthropic SDK on purpose. FlavorForge is one
+        file you can run against a stock Python install, and an SDK dependency
+        would end that. The trade is real — no automatic retries, no typed
+        errors — and the cost is this method being longer than it would
+        otherwise need to be.
+        """
         try:
             if not self.anthropic_key:
                 if error_callback:
                     error_callback("No Anthropic API key configured. Add it in the AI Chef settings.")
                 return
 
-            url = "https://api.anthropic.com/v1/messages"
             payload = json.dumps({
                 "model": self.anthropic_model,
-                "max_tokens": 4096,
+                "max_tokens": CLAUDE_MAX_TOKENS,
+                "stream": True,
                 "messages": [{"role": "user", "content": prompt}],
             }).encode("utf-8")
 
-            req = urllib.request.Request(url, data=payload, headers={
-                "Content-Type": "application/json",
-                "x-api-key": self.anthropic_key,
-                "anthropic-version": "2023-06-01",
-            })
+            req = urllib.request.Request(
+                "https://api.anthropic.com/v1/messages", data=payload, headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": self.anthropic_key,
+                    "anthropic-version": "2023-06-01",
+                })
 
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                text = ""
-                for block in data.get("content", []):
-                    if block.get("type") == "text":
-                        text += block.get("text", "")
+            stop_reason = None
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                for raw in resp:
+                    line = raw.decode("utf-8", "replace").strip()
+                    # Server-sent events: "event:" lines carry the type and
+                    # "data:" lines the JSON. The data payload repeats its own
+                    # type, so the event line can be ignored entirely.
+                    if not line.startswith("data:"):
+                        continue
+                    body = line[5:].strip()
+                    if not body or body == "[DONE]":
+                        continue
+                    try:
+                        evt = json.loads(body)
+                    except json.JSONDecodeError:
+                        continue
 
-                if callback:
-                    callback(text)
-                    callback(None)  # Signal done
+                    kind = evt.get("type")
+                    if kind == "content_block_delta":
+                        delta = evt.get("delta") or {}
+                        if delta.get("type") == "text_delta" and callback:
+                            callback(delta.get("text", ""))
+                    elif kind == "message_delta":
+                        stop_reason = (evt.get("delta") or {}).get("stop_reason", stop_reason)
+                    elif kind == "error":
+                        err = evt.get("error") or {}
+                        if error_callback:
+                            error_callback(f"{err.get('type', 'error')}: {err.get('message', body[:200])}")
+                        return
+
+            # A recipe cut off at the token ceiling used to look finished: the
+            # text simply stopped, mid-step, with nothing to say why.
+            if stop_reason == "max_tokens" and callback:
+                callback(
+                    "\n\n[!] Response hit the "
+                    f"{CLAUDE_MAX_TOKENS}-token limit and was cut off. "
+                    "Try a simpler dish, or raise CLAUDE_MAX_TOKENS.\n")
+            elif stop_reason == "refusal" and error_callback:
+                error_callback("The model declined this request.")
+                return
+
+            if callback:
+                callback(None)   # signal done
 
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
+            hint = ""
+            if e.code == 401:
+                hint = " — check the API key in AI Chef settings."
+            elif e.code == 404:
+                hint = (f" — model {self.anthropic_model!r} was not found. It may have been "
+                        f"retired; pick another from the dropdown.")
+            elif e.code == 429:
+                hint = " — rate limited. Wait a moment and try again."
             if error_callback:
-                error_callback(f"HTTP {e.code}: {body[:300]}")
+                error_callback(f"HTTP {e.code}{hint}\n{body[:300]}")
         except Exception as e:
             if error_callback:
                 error_callback(str(e))
@@ -4746,12 +4865,20 @@ class FlavorForgeGUI:
         tk.Label(settings, text="Model:", font=("Consolas", 10),
                  bg=self.colors["panel"], fg=self.colors["text"]).pack(side=tk.LEFT, padx=(10, 5))
 
+        # A Combobox rather than a plain Entry so the Claude side can offer the
+        # current models by name. Ollama keeps free text — its model names are
+        # whatever the user has pulled locally, so a fixed list would be wrong.
+        # The v3.0 default was pinned in source and went three model
+        # generations stale with nothing to catch it; a dropdown means the
+        # choice does not require editing the file.
         self.ai_model_var = tk.StringVar(value=self.ai_chef.ollama_model)
-        self.ai_model_entry = tk.Entry(settings, textvariable=self.ai_model_var,
-                                        bg=self.colors["accent"], fg=self.colors["text"],
-                                        insertbackground=self.colors["text"],
-                                        font=("Consolas", 9), relief=tk.FLAT, width=20)
+        self.ai_model_entry = ttk.Combobox(settings, textvariable=self.ai_model_var,
+                                           font=("Consolas", 9), width=22)
         self.ai_model_entry.pack(side=tk.LEFT, padx=5, pady=10)
+        self.ai_model_hint = tk.Label(settings, text="", font=("Consolas", 8),
+                                      bg=self.colors["panel"], fg=self.colors["text_dim"])
+        self.ai_model_hint.pack(side=tk.LEFT, padx=(2, 0))
+        self.ai_model_entry.bind("<<ComboboxSelected>>", self._update_model_hint)
 
         tk.Button(settings, text="Test", command=self._test_ai_connection,
                   bg=self.colors["accent"], fg=self.colors["text"],
@@ -4866,13 +4993,24 @@ class FlavorForgeGUI:
         if provider == "ollama":
             self.ai_url_var.set(self.ai_chef.ollama_url)
             self.ai_model_var.set(self.ai_chef.ollama_model)
-            self.api_key_frame.pack_forget()
-            # Re-insert after settings
+            # Free text: the available models are whatever has been pulled.
+            self.ai_model_entry.config(values=(), state="normal")
+            self.ai_model_hint.config(text="")
             self.api_key_frame.pack_forget()
         else:
             self.ai_url_var.set("https://api.anthropic.com")
+            self.ai_model_entry.config(values=[m[1] for m in CLAUDE_MODELS],
+                                       state="readonly")
             self.ai_model_var.set(self.ai_chef.anthropic_model)
+            self._update_model_hint()
             self.api_key_frame.pack(fill=tk.X, pady=(0, 5), after=self.api_key_frame.master.winfo_children()[0])
+
+    def _update_model_hint(self, event=None):
+        note = next((m[2] for m in CLAUDE_MODELS if m[1] == self.ai_model_var.get()), "")
+        retired = getattr(self.ai_chef, "retired_model", "")
+        if retired:
+            note = f"{retired} was retired — switched to this one"
+        self.ai_model_hint.config(text=f"  {note}" if note else "")
 
     def _toggle_key_visibility(self):
         self.ai_key_entry.config(show="" if self.show_key_var.get() else "•")
