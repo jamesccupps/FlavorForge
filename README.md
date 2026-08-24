@@ -2,7 +2,7 @@
 
 **A procedural cooking engine that generates novel recipes using molecular flavor science, texture pairing, and taste balance analysis — with optional AI Chef integration.**
 
-FlavorForge doesn't just mash random ingredients together. It uses a database of 303 real ingredients mapped to 82 aroma compounds (linalool, furaneol, methylpyrazine, etc.) to find scientifically-grounded flavor pairings. Then it layers on texture contrast analysis and taste balance checking to make sure the dish actually works.
+FlavorForge doesn't just mash random ingredients together. It uses a database of 329 real ingredients mapped to 82 aroma compounds (linalool, furaneol, methylpyrazine, etc.) to find scientifically-grounded flavor pairings. Then it layers on texture contrast analysis and taste balance checking to make sure the dish actually works.
 
 Send the result to your local Ollama instance or Claude API, and the AI gets a prompt loaded with molecular pairing data, texture gaps, taste balance issues, and cuisine direction — so it generates a recipe that's both creative and cookable.
 
@@ -55,6 +55,15 @@ Save AI-generated recipes as text files to `~/FlavorForge_Recipes/`.
 ### 🔄 Substitutions
 Out of parmesan? The Pairing tab now ends with what to use instead. A substitute is a different question from a pairing — a pairing goes *with* an ingredient, a substitute has to stand *in* for it — so suggestions come from the same category, and from the same subtype where there is one. You will never be offered chicken stock in place of a vinaigrette, or orzo in place of a baguette. Suggestions that share real aroma compounds rank above ones that only fill the same role, and the ones that only fill the same role say so.
 
+### 🥦 Diet Filter
+Pick omnivore, pescatarian, vegetarian or vegan on the Recipe tab, or pass `--diet` on the CLI. Two independent filters run: the ingredient pool is narrowed, and templates whose *method* assumes something the diet forbids are dropped entirely.
+
+That second one matters. Twenty-nine of the 102 templates name an animal product in prose no slot holds — "finish with cream", "top with a fried egg" — so without it a vegan recipe could instruct you to add parmesan. A chowder without cream is not a chowder, so the honest answer is that it is not vegan and it is not offered.
+
+Classification is per ingredient, because the category cannot carry it: chicken stock is a "sauce", fish sauce and Worcestershire are "fermented", coconut milk is filed under "dairy" because it behaves like cream in a pan, egg noodles contain egg, and mayonnaise is egg rather than milk.
+
+Where the answer genuinely depends on the jar — kimchi, caramel, curry paste, naan, gnocchi, chocolate — the app says *check the label* rather than picking an answer or quietly dropping half your condiments.
+
 ### ⌨ Command Line
 The engine no longer requires the GUI. Useful for scripting, for a headless box, or just for a quick answer:
 
@@ -91,7 +100,7 @@ The database is a mapping and could only ever be read one way: pick an ingredien
 
 ## The Database
 
-303 ingredients across 17 categories, 82 aroma compounds, 1,668 ingredient-compound links.
+329 ingredients across 17 categories, 82 aroma compounds, 1,801 ingredient-compound links.
 
 | Category | Count | Examples |
 |---|---|---|
@@ -237,11 +246,11 @@ FlavorForge saves user data to your home directory:
 ## Project Stats
 
 - **4,874 lines** of Python
-- **303 ingredients** across 17 categories
+- **329 ingredients** across 17 categories
 - **82 aroma compounds** with descriptions
 - **1,632 flavor links**
 - **102 recipe templates** across 16 dish types
-- **182 tests**, run on Linux and Windows across Python 3.10–3.13
+- **237 tests**, run on Linux and Windows across Python 3.10–3.13
 - **24 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-FlavorForge - Procedural Cooking Engine v3.1
+FlavorForge - Procedural Cooking Engine v3.2
 Generates novel recipes based on molecular flavor compound pairing theory.
 Uses real aroma compound data to find scientifically-grounded ingredient combinations.
-303 ingredients, 82 compounds, 102 templates across 16 dish types.
+329 ingredients, 82 compounds, 102 templates across 16 dish types.
 AI Chef integration (Ollama / Claude API) for full recipe generation.
 
 Author: James Cupps
-Version: 3.1.0
+Version: 3.2.0
 """
 
 import ctypes
@@ -33,6 +33,7 @@ except ImportError:                       # headless box, or no python3-tk
 
 import argparse
 import math
+import re
 import random
 import json
 import threading
@@ -49,7 +50,7 @@ from typing import Dict, List, Set, Tuple, Optional
 # Compounds are key volatile/aroma molecules that define flavor
 # ═══════════════════════════════════════════════════════════════════
 
-__version__ = "3.1.0"
+__version__ = "3.2.0"
 
 COMPOUND_CATEGORIES = {
     "terpene": "#4CAF50",
@@ -1202,6 +1203,136 @@ INGREDIENTS = {
          "phenethyl_alcohol", "rotundone"},
         ["reduce", "braise", "deglaze", "marinate"],
         "tannic, dark-fruited, oaky — rotundone gives the peppery reds their pepper"),
+
+    # ═══════════ THIN CATEGORIES FILLED IN 3.2 ═══════════
+    # Chosen from measured shortfalls, not taste. Herbs were 14 ingredients
+    # against 36 template slots with the top three taking 55% of every
+    # appearance; oils were 3 against 8 slots; citrus 4 against 7. And a
+    # vegetarian filter left 3 usable proteins, a vegan one 2 — so every
+    # meat-free recipe the generator could produce was tofu or tempeh.
+    #
+    # Deliberately NOT added: more pasta shapes. Twenty-four noodles already
+    # share eight compound profiles between them, so another is a row in a
+    # dropdown and nothing in the chemistry.
+
+    # ── plant proteins, so a meat-free recipe has somewhere to go ──
+    "seitan": Ingredient("seitan", "protein",
+        {"methylpyrazine", "maltol", "hexanal", "acetylpyrazine", "methional"},
+        ["braise", "sear", "fry", "roast", "simmer"],
+        "wheaty, chewy, deeply savory — takes on whatever it is braised in"),
+    "jackfruit": Ingredient("young jackfruit", "protein",
+        {"ethyl_butyrate", "isoamyl_acetate", "hexanal", "butyric_acid"},
+        ["braise", "shred", "roast", "simmer"],
+        "neutral and stringy when green — pulls like slow-cooked meat"),
+    "halloumi": Ingredient("halloumi", "dairy",
+        {"diacetyl", "butyric_acid", "acetoin", "hexanal", "lactic_acid"},
+        ["grill", "fry", "sear", "skewer"],
+        "salty, squeaky, holds its shape over direct heat"),
+    "paneer": Ingredient("paneer", "dairy",
+        {"diacetyl", "acetoin", "lactic_acid", "hexanal"},
+        ["fry", "simmer", "grill", "crumble"],
+        "mild, milky, firm — a carrier for whatever it is cooked in"),
+
+    # ── dairy alternatives, so "vegan" is not one ingredient wide ──
+    "nutritional_yeast": Ingredient("nutritional yeast", "fermented",
+        {"methylpyrazine", "acetylpyrazine", "methional", "dimethyl_sulfide",
+         "thiazole", "maltol"},
+        ["sprinkle", "blend", "toast", "stir"],
+        "nutty, cheesy, savory — the pyrazines parmesan gets from ageing"),
+    "cashew_cream": Ingredient("cashew cream", "dairy",
+        {"hexanal", "nonanal", "benzaldehyde", "maltol", "gamma_octalactone"},
+        ["blend", "simmer", "drizzle", "thicken"],
+        "rich, neutral, silky — the plant answer to double cream"),
+    "oat_milk": Ingredient("oat milk", "dairy",
+        {"hexanal", "maltol", "furfural", "nonanal", "vanillin"},
+        ["steam", "simmer", "blend", "bake"],
+        "cereal-sweet, creamy, faintly toasty"),
+    "coconut_yogurt": Ingredient("coconut yogurt", "dairy",
+        {"lactic_acid", "gamma_octalactone", "delta_decalactone", "acetoin",
+         "diacetyl"},
+        ["dollop", "marinate", "swirl", "chill"],
+        "tangy, thick, coconut-rich — cultured without the cow"),
+
+    # ── herbs: the thinnest category by demand ──
+    "chervil": Ingredient("chervil", "herb",
+        {"estragole", "anethole", "linalool", "myrcene", "ocimene"},
+        ["raw", "finish", "infuse", "chiffonade"],
+        "delicate anise-parsley — added off the heat or it disappears"),
+    "savory": Ingredient("savory", "herb",
+        {"thymol", "carvone", "terpinene", "pinene", "linalool", "myrcene"},
+        ["dried", "simmer", "rub", "infuse"],
+        "peppery and thyme-like, the classic bean herb"),
+    "shiso": Ingredient("shiso", "herb",
+        {"limonene", "linalool", "eucalyptol", "ocimene", "pinene", "citral"},
+        ["raw", "wrap", "chiffonade", "pickle"],
+        "minty-basil-citrus, unmistakable and slightly numbing"),
+    "thai_basil": Ingredient("Thai basil", "herb",
+        {"estragole", "chavicol", "linalool", "eugenol", "ocimene", "limonene"},
+        ["raw", "finish", "infuse", "stir-fry"],
+        "aniseed-forward and sturdier than sweet basil — survives the wok"),
+    "lovage": Ingredient("lovage", "herb",
+        {"terpinene", "sabinene", "pinene", "myrcene", "1_octen_3_ol"},
+        ["simmer", "infuse", "braise", "raw"],
+        "celery amplified — a little goes a very long way"),
+
+    # ── citrus ──
+    "yuzu": Ingredient("yuzu", "citrus",
+        {"limonene", "citral", "linalool", "nootkatone", "geraniol", "pinene"},
+        ["zest", "juice", "finish", "cure"],
+        "grapefruit-mandarin-floral, aromatic far beyond its juice"),
+    "blood_orange": Ingredient("blood orange", "citrus",
+        {"limonene", "decanal", "octanal", "linalool", "citric_acid", "ionone"},
+        ["juice", "segment", "zest", "roast"],
+        "orange with a raspberry edge — the anthocyanins bring their own note"),
+    "mandarin": Ingredient("mandarin", "citrus",
+        {"limonene", "decanal", "octanal", "methyl_anthranilate", "citric_acid"},
+        ["segment", "juice", "zest", "candy"],
+        "sweet, low-acid, perfumed — the grape-like note is anthranilate"),
+
+    # ── fats: three was every dish getting the same one ──
+    "ghee": Ingredient("ghee", "oil/fat",
+        {"diacetyl", "butyric_acid", "delta_decalactone", "furfural", "maltol"},
+        ["fry", "temper", "roast", "baste"],
+        "nutty browned butter with the milk solids cooked out — high smoke point"),
+    "peanut_oil": Ingredient("peanut oil", "oil/fat",
+        {"methylpyrazine", "hexanal", "nonanal", "acetylpyrazine"},
+        ["fry", "deep-fry", "sear", "wok"],
+        "clean and faintly roasted, built for high heat"),
+    "walnut_oil": Ingredient("walnut oil", "oil/fat",
+        {"hexanal", "nonanal", "trans_2_nonenal", "methylpyrazine", "1_octen_3_ol"},
+        ["drizzle", "dress", "finish"],
+        "toasty and bitter-edged — a finishing oil, never a frying one"),
+    "duck_fat": Ingredient("duck fat", "oil/fat",
+        {"hexanal", "nonanal", "octanal", "methylpyrazine", "thiophene",
+         "diacetyl"},
+        ["roast", "confit", "fry", "baste"],
+        "savory and rich — what makes roast potatoes worth the trouble"),
+
+    # ── legumes and sweeteners ──
+    "white_bean": Ingredient("white bean", "legume",
+        {"hexanal", "1_octen_3_ol", "methional", "dimethyl_sulfide", "maltol"},
+        ["simmer", "braise", "mash", "puree"],
+        "creamy, mild, thickens whatever it is cooked in"),
+    "kidney_bean": Ingredient("kidney bean", "legume",
+        {"hexanal", "methional", "dimethyl_sulfide", "methoxypyrazine"},
+        ["simmer", "stew", "braise", "mash"],
+        "meaty and earthy, holds its shape through a long cook"),
+    "fava_bean": Ingredient("fava bean", "legume",
+        {"hexanal", "methoxypyrazine", "1_octen_3_ol", "geosmin", "nonanal"},
+        ["blanch", "puree", "braise", "raw"],
+        "green, grassy, faintly bitter — spring in a pod"),
+    "molasses": Ingredient("molasses", "sweetener",
+        {"maltol", "furaneol", "furfural", "sotolon", "acetic_acid", "guaiacol"},
+        ["glaze", "bake", "braise", "stir"],
+        "bitter-sweet, smoky, mineral — sotolon gives it the burnt-sugar depth"),
+    "date_syrup": Ingredient("date syrup", "sweetener",
+        {"maltol", "furaneol", "sotolon", "damascenone", "vanillin"},
+        ["drizzle", "glaze", "bake", "stir"],
+        "caramel-raisin sweetness with none of the sharpness of sugar"),
+    "agave": Ingredient("agave nectar", "sweetener",
+        {"furaneol", "maltol", "ethyl_maltol", "vanillin"},
+        ["drizzle", "stir", "dissolve", "glaze"],
+        "clean and neutral, sweeter than sugar so less of it goes in"),
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -2108,6 +2239,202 @@ _SLOT_SUBSETS = {
 _SLOT_CANDIDATES: Dict[str, List[str]] = {}
 
 
+# ═══════════════════════════════════════════════════════════════════
+# DIETARY CLASSIFICATION
+#
+# Per ingredient, not per category, because the category does not carry the
+# information and cannot be made to. Chicken stock is a "sauce"; fish sauce and
+# Worcestershire are "fermented"; coconut milk is filed under "dairy" because
+# it behaves like cream in a pan; mayonnaise and ranch are egg, not milk. Any
+# rule written over CATEGORIES gets all of those wrong.
+#
+# v3.0 inferred this from the category and got two things backwards: tofu and
+# tempeh are category "protein", so a tofu stir-fry was reported as NOT
+# vegetarian, and egg — which is vegetarian — was excluded for the same reason.
+#
+# Tags mark what an ingredient CONTAINS. "verify" means the answer depends on
+# the brand or the recipe, and the app says so rather than guessing: kimchi is
+# very often made with fish sauce or shrimp paste, caramel is usually butter
+# and cream, and curry paste frequently contains shrimp.
+# ═══════════════════════════════════════════════════════════════════
+
+DIET_TAGS = {
+    # --- meat and poultry ---
+    "bacon": {"meat"}, "beef": {"meat"}, "chicken": {"meat"}, "duck": {"meat"},
+    "ground_beef": {"meat"}, "lamb": {"meat"}, "pork": {"meat"},
+    "prosciutto": {"meat"}, "sausage": {"meat"}, "turkey": {"meat"},
+    # Stocks are category "sauce" and are made of animals.
+    "beef_stock": {"meat"}, "bone_broth": {"meat"}, "chicken_stock": {"meat"},
+
+    # --- fish and shellfish (the seafood category, plus what hides elsewhere) ---
+    "anchovy": {"fish"}, "crab": {"fish"}, "lobster": {"fish"},
+    "mussels": {"fish"}, "oyster": {"fish"}, "salmon": {"fish"},
+    "scallop": {"fish"}, "shrimp": {"fish"}, "squid": {"fish"}, "tuna": {"fish"},
+    "fish_sauce": {"fish"}, "dashi": {"fish"},
+    "worcestershire": {"fish"},          # anchovy, in every traditional recipe
+
+    # --- egg ---
+    "egg": {"egg"}, "mayo": {"egg"}, "aioli": {"egg"},
+    "ranch": {"egg", "dairy"},           # mayonnaise plus buttermilk
+
+    # --- dairy ---
+    "blue_cheese": {"dairy"}, "brie": {"dairy"}, "butter": {"dairy"},
+    "buttermilk": {"dairy"}, "cheddar": {"dairy"}, "cotija": {"dairy"},
+    "cream": {"dairy"}, "cream_cheese": {"dairy"}, "feta": {"dairy"},
+    "goat_cheese": {"dairy"}, "gruyere": {"dairy"}, "labneh": {"dairy"},
+    "mascarpone": {"dairy"}, "monterey_jack": {"dairy"}, "mozzarella": {"dairy"},
+    "parmesan": {"dairy"}, "pecorino": {"dairy"}, "provolone": {"dairy"},
+    "ricotta": {"dairy"}, "sour_cream": {"dairy"}, "swiss": {"dairy"},
+    "whipped_cream": {"dairy"}, "yogurt": {"dairy"},
+    "alfredo": {"dairy"}, "bechamel": {"dairy"}, "tzatziki": {"dairy"},
+    "pesto": {"dairy"},                  # parmesan or pecorino, traditionally
+
+    # Plant milks filed under "dairy" because they behave like cream in a
+    # pan. The category is right for cooking and wrong for diet, which is
+    # the whole reason this table is keyed on ingredients.
+    "coconut_milk": set(), "cashew_cream": set(), "oat_milk": set(),
+    "coconut_yogurt": set(),
+
+    "halloumi": {"dairy"}, "paneer": {"dairy"},
+    "ghee": {"dairy"}, "duck_fat": {"meat"},
+
+    # --- honey: vegetarian, not vegan ---
+    "honey": {"honey"},
+
+    # --- animal products hiding in the grain aisle ---
+    # Not obvious from the category, which is exactly why they are here: a
+    # vegan recipe was being generated whose noodle was egg noodles.
+    "egg_noodles": {"egg"},
+    "brioche": {"egg", "dairy"},
+
+    # --- depends on the jar, the bakery, or the brand ---
+    "gnocchi": {"verify"},               # traditionally bound with egg
+    "naan": {"verify"},                  # usually yogurt, often ghee
+    "cornbread": {"verify"},             # usually egg and buttermilk
+    "tortilla": {"verify"},              # flour tortillas can contain lard
+    "miso_broth": {"verify"},            # very often built on dashi
+    "chocolate": {"verify"},             # milk chocolate is most of the shelf
+    "pasta": {"verify"},                 # dried is vegan, fresh is not
+    "kimchi": {"verify"},                # very often fish sauce or shrimp paste
+    "caramel": {"verify"},               # usually butter and cream
+    "curry_paste": {"verify"},           # frequently shrimp paste
+    "bbq_sauce": {"verify"},             # some brands use honey or anchovy
+    "buffalo_sauce": {"verify"},         # traditionally butter
+}
+
+# What each diet forbids. "verify" is never auto-excluded — it is surfaced to
+# the cook, because silently dropping half the condiments would be worse than
+# telling them to read the label.
+DIET_FORBIDS = {
+    "omnivore": set(),
+    "pescatarian": {"meat"},
+    "vegetarian": {"meat", "fish"},
+    "vegan": {"meat", "fish", "dairy", "egg", "honey"},
+}
+DIETS = list(DIET_FORBIDS)
+
+
+# Animal products a template's METHOD can call for without any slot holding
+# them. "Finish with cream", "top with a fried egg", "render the bacon" — the
+# slot filter never sees those words, so a vegan recipe could be produced whose
+# own instructions say to add parmesan. 29 of the 102 templates do this.
+#
+# Rewriting them was the alternative and it is the wrong one: a chowder without
+# cream and bacon is not a chowder. The honest answer is that those templates
+# are not vegan, so they are not offered to a diet that forbids what they
+# assume. With 102 templates the pool absorbs it.
+#
+# Scanned from the prose rather than hand-tagged, so a template edited later
+# cannot quietly slip through.
+_METHOD_MARKERS = {
+    "meat": ("bacon", "pancetta", "chorizo", "prosciutto", "lard", "duck fat",
+             "chicken stock", "beef stock", "bone broth", "chicken broth"),
+    "fish": ("anchovy", "anchovies", "fish sauce", "dashi", "bonito",
+             "oyster sauce", "shrimp paste"),
+    "dairy": ("parmesan", "pecorino", "mozzarella", "feta", "butter", "cream",
+              "milk", "yogurt", "yoghurt", "buttermilk", "ghee", "cheese",
+              "creme fraiche", "mascarpone", "ricotta"),
+    "egg": ("egg", "eggs", "mayo", "mayonnaise", "aioli"),
+    "honey": ("honey",),
+}
+
+# Plant milks contain the word "milk" and are not dairy. Removed before the
+# scan rather than special-cased inside it.
+_NOT_DAIRY_PHRASES = ("coconut milk", "oat milk", "almond milk", "soy milk",
+                      "cashew milk", "plant milk", "coconut cream",
+                      "cashew cream", "coconut yogurt",
+                      # Nut butters are not butter. No template writes one
+                      # today, but "peanut butter" reaches the RENDERED text
+                      # whenever a {nut} slot is filled with it, and the two
+                      # are easy to confuse when reading this later.
+                      "peanut butter", "almond butter", "cashew butter",
+                      "nut butter", "sunflower butter")
+
+
+def method_diet_tags(template: dict) -> set:
+    """What a template's instructions assume, ignoring its slots."""
+    text = re.sub(r"\{[a-z_]+\}", " ", template.get("technique", "")).lower()
+    for phrase in _NOT_DAIRY_PHRASES:
+        text = text.replace(phrase, " ")
+    found = set()
+    for tag, words in _METHOD_MARKERS.items():
+        for w in words:
+            if re.search(r"\b" + re.escape(w) + r"\b", text):
+                found.add(tag)
+                break
+    return found
+
+
+def template_allows(template: dict, diet: str) -> bool:
+    forbidden = DIET_FORBIDS.get(diet)
+    if not forbidden:
+        return True
+    return not (method_diet_tags(template) & forbidden)
+
+
+def diet_tags(name: str) -> set:
+    """What an ingredient contains. Explicit table first, then a category
+    fallback so a new ingredient is not silently assumed to be vegan."""
+    if name in DIET_TAGS:
+        return DIET_TAGS[name]
+    ing = INGREDIENTS.get(name)
+    if ing is None:
+        return set()
+    # tofu, tempeh and seitan are category "protein" and are plants; every
+    # other protein in the table above is tagged explicitly, so anything
+    # reaching here from those categories is new and unclassified.
+    if ing.category == "seafood":
+        return {"fish"}
+    if ing.category == "dairy":
+        return {"dairy"}                 # coconut_milk is tagged {} explicitly
+    return set()
+
+
+def diet_allows(name: str, diet: str) -> bool:
+    """Whether `diet` permits `name`. Unknown diets permit everything."""
+    forbidden = DIET_FORBIDS.get(diet)
+    if not forbidden:
+        return True
+    return not (diet_tags(name) & forbidden)
+
+
+def dietary_profile(names) -> dict:
+    """Which diets a set of ingredients satisfies, and what to double-check."""
+    tags = set()
+    unsure = []
+    for n in names:
+        t = diet_tags(n)
+        tags |= t
+        if "verify" in t:
+            unsure.append(n)
+    return {
+        "suits": [d for d, forbidden in DIET_FORBIDS.items()
+                  if d != "omnivore" and not (tags & forbidden)],
+        "contains": sorted(tags - {"verify"}),
+        "verify": sorted(unsure),
+    }
+
+
 def _compute_slot_candidates(slot: str) -> List[str]:
     if slot in _SLOT_SUBSETS:
         return sorted(n for n in _SLOT_SUBSETS[slot] if n in INGREDIENTS)
@@ -2142,9 +2469,12 @@ def slot_candidate_set(slot: str) -> Set[str]:
     return cached
 
 
-def get_slot_candidates(slot: str, exclude: set = None) -> List[str]:
+def get_slot_candidates(slot: str, exclude: set = None,
+                       diet: Optional[str] = None) -> List[str]:
     """Valid ingredient keys for a template slot, handling subtypes."""
     candidates = slot_candidates_cached(slot)
+    if diet and DIET_FORBIDS.get(diet):
+        candidates = [n for n in candidates if diet_allows(n, diet)]
     if not exclude:
         return list(candidates)
     return [n for n in candidates if n not in exclude]
@@ -2458,7 +2788,8 @@ class FlavorEngine:
 
     def generate_recipe(self, seed_ingredient: Optional[str] = None,
                         target_novelty: float = 0.6,
-                        dish_type: Optional[str] = None) -> dict:
+                        dish_type: Optional[str] = None,
+                        diet: Optional[str] = None) -> dict:
         if seed_ingredient and seed_ingredient not in self.ingredients:
             seed_ingredient = None
 
@@ -2486,6 +2817,20 @@ class FlavorEngine:
                               for s in t["structure"])]
             if fitting:
                 templates = fitting
+
+        # A diet can empty a required slot outright — there is no vegan
+        # substitute for the protein in a template built around bacon. Drop
+        # those templates rather than silently producing a dish with a hole
+        # in it, and fall back to the unfiltered list only if nothing at all
+        # survives, so the user gets a recipe plus a warning instead of
+        # nothing at all.
+        if diet and DIET_FORBIDS.get(diet):
+            viable = [t for t in templates
+                      if template_allows(t, diet)
+                      and all(get_slot_candidates(slot, diet=diet)
+                              for slot in t["needs"])]
+            if viable:
+                templates = viable
 
         best_recipe = None
         best_novelty = -1
@@ -2523,7 +2868,8 @@ class FlavorEngine:
             for slot in template["structure"]:
                 if slot in chosen:
                     continue
-                candidates = get_slot_candidates(slot, exclude=set(chosen.values()))
+                candidates = get_slot_candidates(slot, exclude=set(chosen.values()),
+                                                 diet=diet)
                 if candidates:
                     chosen[slot] = random.choice(candidates)
 
@@ -2580,16 +2926,19 @@ class FlavorEngine:
             "novelty": recipe["novelty"],
             "connections": connections,
             "dish_type": recipe["template"].get("dish_type", ""),
+            "diet": dietary_profile(recipe["ingredients"].values()),
         }
 
-    def surprise_me(self, dish_type: Optional[str] = None) -> dict:
+    def surprise_me(self, dish_type: Optional[str] = None,
+                    diet: Optional[str] = None) -> dict:
         candidates = []
         for _ in range(40):
-            recipe = self.generate_recipe(target_novelty=0.8, dish_type=dish_type)
+            recipe = self.generate_recipe(target_novelty=0.8, dish_type=dish_type,
+                                          diet=diet)
             if "error" not in recipe and len(recipe["connections"]) >= 2:
                 candidates.append(recipe)
         if not candidates:
-            return self.generate_recipe(dish_type=dish_type)
+            return self.generate_recipe(dish_type=dish_type, diet=diet)
         candidates.sort(key=lambda r: r["novelty"], reverse=True)
         top = candidates[:min(12, len(candidates))]
         return random.choice(top)
@@ -2681,13 +3030,14 @@ class FlavorEngine:
 
         # ── Dietary tags ──
         categories_used = set(self.ingredients[k].category for k in all_keys if k in self.ingredients)
-        dietary = []
-        if not (categories_used & {"protein", "seafood"}):
-            dietary.append("vegetarian")
-        if not (categories_used & {"protein", "seafood", "dairy"}):
-            dietary.append("vegan candidate (verify)")
-        if "seafood" in categories_used and "protein" not in categories_used:
-            dietary.append("pescatarian")
+        # Per-ingredient, not inferred from the category. The category version
+        # reported a tofu stir-fry as non-vegetarian (tofu is category
+        # "protein") and excluded egg from vegetarian for the same reason.
+        profile = dietary_profile(recipe["ingredients"].values())
+        dietary = list(profile["suits"])
+        if profile["verify"]:
+            dietary.append("depends on the brand of "
+                           + ", ".join(profile["verify"]) + " — say so in the recipe")
 
         # ── Build the prompt ──
         lines = []
@@ -3727,6 +4077,14 @@ class FlavorForgeGUI:
                                   values=DISH_TYPES, state="readonly", width=18)
         type_menu.pack(side=tk.LEFT, padx=5, pady=15)
 
+        tk.Label(top, text="Diet:", font=("Consolas", 10),
+                 bg=self.colors["panel"], fg=self.colors["text"]).pack(side=tk.LEFT, padx=(10, 5))
+
+        self.recipe_diet_var = tk.StringVar(value="omnivore")
+        diet_menu = ttk.Combobox(top, textvariable=self.recipe_diet_var,
+                                 values=DIETS, state="readonly", width=12)
+        diet_menu.pack(side=tk.LEFT, padx=5, pady=15)
+
         tk.Button(top, text="⚗ Generate", command=self._generate_recipe,
                   bg=self.colors["highlight"], fg=self.colors["text_bright"],
                   font=("Consolas", 11, "bold"), relief=tk.FLAT, padx=15,
@@ -3874,6 +4232,22 @@ class FlavorForgeGUI:
         self.recipe_output.insert(tk.END, f"    Novelty: [{bar}] ", tag)
         self.recipe_output.insert(tk.END, f"{novelty:.0%} — {label}\n", tag)
 
+        # ── What it suits ──
+        # Reported per ingredient, not inferred from categories: a tofu dish
+        # used to come back as not vegetarian, because tofu is filed under
+        # "protein". "verify" items are named rather than silently dropped —
+        # whether kimchi is vegan depends on the jar.
+        diet = recipe.get("diet")
+        if diet:
+            suits = ", ".join(diet["suits"]) if diet["suits"] else "omnivore"
+            self.recipe_output.insert(tk.END, "\n  SUITS: ", "section")
+            self.recipe_output.insert(tk.END, f"{suits}\n", "novelty_high")
+            if diet["verify"]:
+                names = ", ".join(INGREDIENTS[n].name if n in INGREDIENTS else n
+                                  for n in diet["verify"])
+                self.recipe_output.insert(
+                    tk.END, f"    check the label on: {names}\n", "novelty_low")
+
         # ── Why these ingredients pair ──
         self.recipe_output.insert(tk.END, "\n  WHY IT WORKS\n", "section")
 
@@ -3950,12 +4324,19 @@ class FlavorForgeGUI:
         if seed == "(random)" or not seed:
             seed = None
         dish_type = self.recipe_type_var.get()
-        recipe = self.engine.generate_recipe(seed_ingredient=seed, dish_type=dish_type)
+        recipe = self.engine.generate_recipe(seed_ingredient=seed, dish_type=dish_type,
+                                             diet=self._selected_diet())
         self._display_recipe(recipe)
+
+    def _selected_diet(self):
+        """None rather than "omnivore", so the engine skips filtering entirely."""
+        diet = self.recipe_diet_var.get()
+        return None if diet == "omnivore" else diet
 
     def _surprise_recipe(self):
         dish_type = self.recipe_type_var.get()
-        recipe = self.engine.surprise_me(dish_type=dish_type)
+        recipe = self.engine.surprise_me(dish_type=dish_type,
+                                         diet=self._selected_diet())
         self._display_recipe(recipe)
 
     def _send_to_ai(self):
@@ -5412,6 +5793,8 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                         help="with --recipe: build the dish around this")
     parser.add_argument("--dish-type", metavar="TYPE",
                         help="with --recipe: e.g. 'Soup', 'Pizza & Flatbread'")
+    parser.add_argument("--diet", metavar="DIET", choices=DIETS,
+                        help="with --recipe: %s" % " | ".join(DIETS))
     parser.add_argument("--category", metavar="CAT",
                         help="with --list: filter to one category")
     parser.add_argument("-n", type=int, default=15, metavar="N",
@@ -5506,13 +5889,19 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
             seed = _resolve(args.seed)
             if not seed:
                 return _die_unknown(args.seed)
-        r = engine.generate_recipe(seed_ingredient=seed, dish_type=args.dish_type)
+        r = engine.generate_recipe(seed_ingredient=seed, dish_type=args.dish_type,
+                                   diet=args.diet)
         if "error" in r:
             print(r["error"], file=sys.stderr)
             return 1
         print(r["name"])
         print("=" * len(r["name"]))
-        print("%s   novelty %.0f%%\n" % (r["dish_type"], r["novelty"] * 100))
+        suits = ", ".join(r["diet"]["suits"]) or "omnivore"
+        print("%s   novelty %.0f%%   suits: %s"
+              % (r["dish_type"], r["novelty"] * 100, suits))
+        if r["diet"]["verify"]:
+            print("   check the label on: %s" % ", ".join(r["diet"]["verify"]))
+        print()
         for slot, name in r["ingredients"].items():
             print("  %-14s %-22s %s" % (slot, INGREDIENTS[name].name,
                                         INGREDIENTS[name].flavor_notes))

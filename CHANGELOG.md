@@ -1,5 +1,57 @@
 # Changelog
 
+## [3.2.0] — 2026-08-24
+
+Answers "what else should this have?" with what the data said, not what
+sounded good.
+
+### Added
+
+- **Diet filtering, as an input.** Recipe tab dropdown, `--diet` on the CLI:
+  omnivore, pescatarian, vegetarian, vegan. Previously diet was only ever
+  *reported*, after the fact, and there was no way to ask for one.
+- **26 ingredients**, chosen from measured shortfalls: plant proteins (seitan,
+  jackfruit, halloumi, paneer), dairy alternatives (nutritional yeast, cashew
+  cream, oat milk, coconut yogurt), five herbs (chervil, savory, shiso, Thai
+  basil, lovage), three citrus (yuzu, blood orange, mandarin), four fats (ghee,
+  peanut, walnut, duck), three legumes and three sweeteners.
+  **Not** more pasta shapes: 24 noodles already share 8 compound profiles
+  between them, so another adds a dropdown row and nothing to the chemistry.
+
+### Fixed
+
+- **Diet was inferred from the ingredient category and got it backwards in
+  both directions.** Tofu and tempeh are category "protein", so a tofu stir-fry
+  was reported as NOT vegetarian; egg, which is vegetarian, was excluded for
+  the same reason. It is now classified per ingredient, because the category
+  cannot carry it: chicken stock is a "sauce", fish sauce and Worcestershire
+  are "fermented", coconut milk is filed under "dairy" because it behaves like
+  cream in a pan, and mayonnaise is egg rather than milk.
+- **Animal products hiding in the grain aisle.** Egg noodles contain egg and
+  were untagged, so a vegan recipe could be generated whose noodle was egg
+  noodles. Brioche likewise.
+- **Recipe methods that contradicted their own label.** 29 of 102 templates
+  name an animal product in prose no slot holds — "finish with cream", "top
+  with a fried egg" — so a vegan dish could instruct you to add parmesan. Those
+  templates are now excluded from diets that forbid what they assume, derived
+  by scanning the prose so it cannot drift as templates are edited. A chowder
+  without cream is not a chowder; the honest answer is that it is not vegan.
+- Ambiguous ingredients are flagged rather than guessed. Whether kimchi,
+  caramel, curry paste, naan, gnocchi or chocolate suits a diet depends on the
+  jar, and the app says so instead of picking an answer or silently dropping
+  half the condiments.
+
+### Performance
+
+- Pair scores are memoised and the union weight derived rather than summed.
+  Dragging the Graph tab's threshold slider re-derived all 45,753 pairs on
+  every movement: **142 ms → 10.5 ms**. Surprise Me 63 ms → 32 ms warm.
+
+### Notes
+
+- 182 → 237 tests. The diet tests sweep 2,400 generated recipes checking that
+  none contradicts its own label, in ingredients or in prose.
+
 ## [3.1.0] — 2026-08-24
 
 Acts on an independent audit of 3.0. Two changes alter results you may have

@@ -154,7 +154,10 @@ def test_compound_lookup(cli):
     code, out, _ = cli("--compound", "geosmin")
     assert code == 0
     assert "beet" in out and "earthy" in out
-    assert "1 of 303" in out or "of 303 ingredients" in out
+    # Not a hard-coded 303: the database grows, and a test that has to be
+    # edited every time an ingredient is added is a test nobody trusts.
+    import flavorforge as _ff
+    assert f"of {len(_ff.INGREDIENTS)} ingredients" in out
 
 
 def test_compound_falls_back_to_search(cli):
