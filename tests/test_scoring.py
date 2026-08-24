@@ -225,3 +225,71 @@ def test_novelty_ignores_unknown_names(engine):
     """A slot that could not be filled leaves a name the database has never
     heard of; it must not crash the scorer."""
     assert 0.0 <= engine.novelty_score(["tomato", "not_a_real_thing", "basil"]) <= 1.0
+
+
+# ─── determinism ───────────────────────────────────────────────────────
+
+def test_manual_accumulation_really_is_order_sensitive():
+    """Establishes the hazard the sort exists for, on every interpreter.
+
+    sum() over floats gained Neumaier compensated summation in CPython 3.12,
+    so on 3.12+ it is order-insensitive and this hazard is invisible through
+    sum() alone — which is precisely why the first CI run for this release was
+    green on all four 3.12/3.13 legs and red on all four 3.10/3.11 legs.
+    Accumulating by hand is naive on every version, so it demonstrates the
+    problem anywhere.
+    """
+    vals = [1.0, 1e16, -1e16]
+    fwd = 0.0
+    for v in vals:
+        fwd += v
+    rev = 0.0
+    for v in reversed(vals):
+        rev += v
+    assert fwd != rev, "float addition has become associative; revisit the sort"
+
+
+def test_the_weight_sum_does_not_depend_on_iteration_order(engine, ffmod, monkeypatch):
+    """The property, asserted against order-sensitive weights.
+
+    On 3.10/3.11 this fails without the sort. On 3.12+ sum() compensates and
+    it passes either way, so the source check below is what carries the
+    guarantee there — noted rather than hidden, because a test that only bites
+    on half the matrix should say so.
+    """
+    keys = sorted(ffmod.COMPOUNDS)[:3]
+    monkeypatch.setattr(engine, "_weight",
+                        {keys[0]: 1.0, keys[1]: 1e16, keys[2]: -1e16})
+    expected = engine._sum_weights(keys)
+    for order in ([keys[2], keys[1], keys[0]], [keys[1], keys[2], keys[0]]):
+        assert engine._sum_weights(order) == expected,             f"summation depends on order: {order}"
+    assert engine._sum_weights(set(keys)) == expected
+
+
+def test_the_weight_sum_is_explicitly_ordered():
+    """The check that holds on every interpreter, including the ones where
+    sum() hides the problem."""
+    import re
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "flavorforge.py").read_text(encoding="utf-8")
+    body = src[src.index("def _sum_weights("):]
+    body = body[:body.index("\n    def ")]
+    assert re.search(r"for c in sorted\(", body),         "_sum_weights no longer imposes an order; it will drift by hash order on 3.11"
+
+
+def test_symmetry_holds_across_the_whole_database(engine, ffmod):
+    """The sweep the CI failure came from, run over every pair rather than the
+    first 2,000, now that the result no longer depends on iteration order."""
+    names = list(ffmod.INGREDIENTS)
+    for a, b in itertools.combinations(names, 2):
+        x = engine.weighted_similarity(a, b)[0]
+        y = engine.weighted_similarity(b, a)[0]
+        assert x == y, f"{a}/{b}: {x!r} vs {y!r}"
+
+
+def test_bridge_scores_are_symmetric_in_their_inputs(engine):
+    """find_bridge sums over sets the same way and had the same exposure."""
+    for a, b in (("pork", "apple"), ("beef", "coffee"), ("strawberry", "basil")):
+        fwd = {x["ingredient"]: x["score"] for x in engine.find_bridge(a, b)}
+        rev = {x["ingredient"]: x["score"] for x in engine.find_bridge(b, a)}
+        assert fwd == rev, f"{a}/{b} bridges differ by argument order"

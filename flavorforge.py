@@ -2174,6 +2174,29 @@ class FlavorEngine:
         self._weight = {c: self._compound_weight(c) for c in self._compound_freq}
         self._max_weight = max(self._weight.values()) if self._weight else 1.0
 
+    def _sum_weights(self, compounds) -> float:
+        """Total weight of a set of compounds, summed in a fixed order.
+
+        Sorted, and not for tidiness. Iterating a set follows hash order, so
+        `A | B` and `B | A` can yield the same compounds in different orders —
+        and float addition is not associative, so the two totals can differ in
+        the last bit. weighted_similarity(a, b) then does not always equal
+        weighted_similarity(b, a).
+
+        Whether that bites depends on the interpreter, which is what made it
+        confusing. CPython 3.12 gave sum() Neumaier compensated summation for
+        floats, so on 3.12+ the order stops mattering; 3.10 and 3.11 accumulate
+        naively and it does. The first CI run for this release was green on
+        both 3.12 legs and both 3.13 legs and red on all four 3.10/3.11 legs,
+        which is exactly that line.
+
+        It is a one-ULP difference and harmless to a score shown at two decimal
+        places. It is fixed anyway because a function whose result depends on
+        the Python version is a bad thing to build a test suite on, and sorting
+        a handful of short strings costs nothing measurable.
+        """
+        return sum(self._weight.get(c, 0.0) for c in sorted(compounds))
+
     def _compound_weight(self, compound: str) -> float:
         """How much a shared compound is worth, by how rare it is.
 
@@ -2240,12 +2263,10 @@ class FlavorEngine:
         if not shared:
             return 0.0, set()
 
-        union_weight = sum(self._weight.get(c, 0.0)
-                           for c in (ing_a.compounds | ing_b.compounds))
+        union_weight = self._sum_weights(ing_a.compounds | ing_b.compounds)
         if union_weight <= 0:
             return 0.0, shared
-        shared_weight = sum(self._weight.get(c, 0.0) for c in shared)
-        return min(shared_weight / union_weight, 1.0), shared
+        return min(self._sum_weights(shared) / union_weight, 1.0), shared
 
     def get_pairings(self, ingredient_name: str, top_n: int = 20) -> List[dict]:
         if ingredient_name not in self.ingredients:
@@ -2310,11 +2331,11 @@ class FlavorEngine:
             size = len(bridge_ing.compounds)
             if not size:
                 continue
-            own_weight = sum(self._weight.get(c, 0.0) for c in bridge_ing.compounds)
+            own_weight = self._sum_weights(bridge_ing.compounds)
             if own_weight <= 0:
                 continue
-            link_a = sum(self._weight.get(c, 0.0) for c in shared_with_a) / own_weight
-            link_b = sum(self._weight.get(c, 0.0) for c in shared_with_b) / own_weight
+            link_a = self._sum_weights(shared_with_a) / own_weight
+            link_b = self._sum_weights(shared_with_b) / own_weight
             bridge_score = min(link_a, link_b)
             if bridge_score <= 0.0:
                 continue
