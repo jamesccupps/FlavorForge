@@ -2908,6 +2908,33 @@ DEFAULT_CLAUDE_MODEL = CLAUDE_MODELS[0][1]
 CLAUDE_MAX_TOKENS = 16000
 
 
+def _write_json_atomic(path: str, data, secret: bool = False) -> bool:
+    """Write JSON via a temp file and an atomic replace. Never raises.
+
+    open(path, "w") truncates before it writes, so an interruption between the
+    two leaves an empty file. For a pantry that is a mild annoyance; for the
+    saved-recipe list it is somebody's collection; for the config it is the API
+    key. os.replace is atomic on POSIX and on Windows, so a reader sees either
+    the old file or the new one and never a half-written one.
+    """
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, default=list)
+        if secret:
+            _restrict_permissions(tmp)
+        os.replace(tmp, path)
+        return True
+    except (OSError, TypeError, ValueError) as exc:
+        # TypeError / ValueError: json.dump on something it cannot encode.
+        print(f"Save error ({os.path.basename(path)}): {exc}")
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        return False
+
+
 def _restrict_permissions(path: str) -> None:
     """Best-effort owner-only permissions on a file holding a secret.
 
@@ -2940,17 +2967,23 @@ class AIChef:
 
     def _load_config(self):
         try:
-            with open(self._config_path(), "r") as f:
+            with open(self._config_path(), "r", encoding="utf-8-sig") as f:
                 cfg = json.load(f)
+                if not isinstance(cfg, dict):
+                    raise ValueError("config is not a JSON object")
                 self.ollama_url = cfg.get("ollama_url", self.ollama_url)
                 self.ollama_model = cfg.get("ollama_model", self.ollama_model)
                 self.anthropic_key = cfg.get("anthropic_key", self.anthropic_key)
                 self.anthropic_model = cfg.get("anthropic_model", self.anthropic_model)
                 self.provider = cfg.get("provider", self.provider)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            # A missing config is the normal first-run case. An unreadable or
+            # malformed one is not a reason to fail to start — the defaults
+            # above are all still in place.
             pass
-        except OSError:
-            pass          # unreadable config is not a reason to fail to start
+        # A cfg that is not an object would have raised AttributeError on the
+        # first .get above rather than falling through to here, so the shape is
+        # checked before it is used.
 
         # A model id saved by an older version may no longer exist. Rather
         # than let the first generation fail with a 404 from the API, move it
@@ -2969,28 +3002,7 @@ class AIChef:
             "anthropic_model": self.anthropic_model,
             "provider": self.provider,
         }
-        path = self._config_path()
-        tmp = path + ".tmp"
-        try:
-            # Written to a temp file and moved into place. A crash partway
-            # through a plain open("w") leaves a truncated config, and this is
-            # the file that holds the API key — losing it silently on a bad
-            # shutdown is the worst version of that failure.
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(cfg, f, indent=2)
-            _restrict_permissions(tmp)
-            os.replace(tmp, path)
-            return True
-        except (OSError, TypeError, ValueError) as e:
-            # TypeError / ValueError: json.dump on a value it cannot encode.
-            # The old handler caught neither, despite the method promising in
-            # its own shape never to raise.
-            print(f"Config save error: {e}")
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            return False
+        return _write_json_atomic(self._config_path(), cfg, secret=True)
 
     def generate(self, prompt: str, callback=None, error_callback=None):
         """Generate response in a background thread. Calls callback with chunks."""
@@ -3810,17 +3822,18 @@ class FlavorForgeGUI:
 
     def _load_all_saved(self) -> List:
         try:
-            with open(self._recipes_path(), "r") as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
+            # utf-8-sig: these files are hand-editable, and Notepad writes a
+            # BOM that plain utf-8 rejects outright.
+            with open(self._recipes_path(), "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return []
+        # A file of the wrong shape would otherwise fail much later, in the
+        # middle of rendering the list.
+        return data if isinstance(data, list) else []
 
-    def _save_all(self, recipes: List):
-        try:
-            with open(self._recipes_path(), "w") as f:
-                json.dump(recipes, f, indent=2, default=list)
-        except Exception as e:
-            print(f"Save error: {e}")
+    def _save_all(self, recipes: List) -> bool:
+        return _write_json_atomic(self._recipes_path(), recipes)
 
     def _refresh_saved_list(self):
         saved = self._load_all_saved()
@@ -4508,19 +4521,17 @@ class FlavorForgeGUI:
         return os.path.join(os.path.expanduser("~"), ".flavorforge_pantry.json")
 
     def _load_pantry(self):
+        self.pantry = set()
         try:
-            with open(self._pantry_path(), "r") as f:
+            with open(self._pantry_path(), "r", encoding="utf-8-sig") as f:
                 data = json.load(f)
-                self.pantry = set(data.get("pantry", []))
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.pantry = set()
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return
+        if isinstance(data, dict):
+            self.pantry = {n for n in data.get("pantry", []) if isinstance(n, str)}
 
-    def _save_pantry(self):
-        try:
-            with open(self._pantry_path(), "w") as f:
-                json.dump({"pantry": sorted(self.pantry)}, f, indent=2)
-        except Exception as e:
-            print(f"Pantry save error: {e}")
+    def _save_pantry(self) -> bool:
+        return _write_json_atomic(self._pantry_path(), {"pantry": sorted(self.pantry)})
 
     # ─── MY PANTRY TAB ─────────────────────────────────────────
 

@@ -303,7 +303,9 @@ def test_saving_the_config_is_atomic(ffmod, tmp_path, monkeypatch):
 def test_a_failed_save_leaves_no_temp_file(ffmod, tmp_path, monkeypatch):
     monkeypatch.setattr(ffmod.os.path, "expanduser", lambda p: str(tmp_path))
     c = ffmod.AIChef()
-    c.provider = {"not": "encodable"}.keys()          # json.dump raises TypeError
+    # json.dump is called with default=list, so anything iterable now encodes.
+    # A bare object is neither JSON-native nor listable, so it still raises.
+    c.provider = object()
     assert c.save_config() is False
     assert not list(tmp_path.glob("*.tmp"))
 
