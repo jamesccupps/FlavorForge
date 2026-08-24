@@ -222,3 +222,37 @@ def test_the_readme_counts_match_the_data(ffmod):
     assert f"{len(ffmod.INGREDIENTS)} ingredients" in readme
     assert f"{len(ffmod.COMPOUNDS)} aroma compounds" in readme
     assert f"{len(ffmod.DISH_TEMPLATES)} recipe templates" in readme
+
+
+# ─── the module's own claims about itself ──────────────────────────────
+
+def test_the_module_docstring_counts_are_accurate(ffmod):
+    """The docstring is the first thing anyone reads and it was three versions
+    stale: 190 ingredients when there were 297, 77 templates when there were
+    102, 17 dish types when there were 16 (it was counting the "Any" filter
+    entry as a dish type). The README had been kept current; the code had not,
+    and nothing could tell you that."""
+    doc = ffmod.__doc__
+    actual = {
+        "ingredients": len(ffmod.INGREDIENTS),
+        "compounds": len(ffmod.COMPOUNDS),
+        "templates": len(ffmod.DISH_TEMPLATES),
+    }
+    for word, n in actual.items():
+        m = re.search(rf"(\d+)\s+{word}", doc)
+        assert m, f"docstring no longer states a {word} count"
+        assert int(m.group(1)) == n, f"docstring says {m.group(1)} {word}, actual {n}"
+
+
+def test_the_docstring_dish_type_count_excludes_the_any_filter(ffmod):
+    """"Any" is a UI filter meaning "do not filter", not a kind of dish."""
+    m = re.search(r"(\d+)\s+dish types", ffmod.__doc__)
+    assert m, "docstring no longer states a dish-type count"
+    assert int(m.group(1)) == len(ffmod.DISH_TYPES) - 1
+
+
+def test_the_readme_counts_match_the_data(ffmod):
+    readme = (SRC.parent / "README.md").read_text(encoding="utf-8")
+    assert f"{len(ffmod.INGREDIENTS)} ingredients" in readme
+    assert f"{len(ffmod.COMPOUNDS)} aroma compounds" in readme
+    assert f"{len(ffmod.DISH_TEMPLATES)} recipe templates" in readme

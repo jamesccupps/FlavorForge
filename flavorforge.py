@@ -3,7 +3,7 @@
 FlavorForge - Procedural Cooking Engine v3.0
 Generates novel recipes based on molecular flavor compound pairing theory.
 Uses real aroma compound data to find scientifically-grounded ingredient combinations.
-190 ingredients, 84 compounds, 77 templates across 17 dish types.
+297 ingredients, 84 compounds, 102 templates across 16 dish types.
 AI Chef integration (Ollama / Claude API) for full recipe generation.
 
 Author: James Cupps
@@ -167,7 +167,9 @@ COMPOUNDS = {
 }
 
 # ═══════════════════════════════════════════════════════════════════
-# INGREDIENT DATABASE — 130+ ingredients
+# INGREDIENT DATABASE
+# Counts are asserted against the data in tests/test_data_integrity.py,
+# so a stale number here is a red build rather than a wrong README.
 # ═══════════════════════════════════════════════════════════════════
 
 @dataclass
@@ -1428,7 +1430,7 @@ def analyze_balance(ingredient_names: List[str]) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# DISH TEMPLATES — 65+ structural frameworks across many dish types
+# DISH TEMPLATES — structural frameworks across every dish type
 # Each template has a "dish_type" for filtering in the UI
 # ═══════════════════════════════════════════════════════════════════
 
