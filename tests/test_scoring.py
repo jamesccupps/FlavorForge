@@ -293,3 +293,58 @@ def test_bridge_scores_are_symmetric_in_their_inputs(engine):
         fwd = {x["ingredient"]: x["score"] for x in engine.find_bridge(a, b)}
         rev = {x["ingredient"]: x["score"] for x in engine.find_bridge(b, a)}
         assert fwd == rev, f"{a}/{b} bridges differ by argument order"
+
+
+# ─── the score cache ───────────────────────────────────────────────────
+
+def test_the_cache_never_changes_an_answer(engine, ffmod):
+    """A cache that alters a result is worse than no cache. Compared against
+    a fresh engine, which starts cold."""
+    fresh = ffmod.FlavorEngine()
+    names = list(ffmod.INGREDIENTS)
+    for a, b in itertools.islice(itertools.combinations(names, 2), 3000):
+        engine.weighted_similarity(a, b)          # warm this pair
+    for a, b in itertools.islice(itertools.combinations(names, 2), 3000):
+        assert engine.weighted_similarity(a, b) == fresh.weighted_similarity(a, b)
+
+
+def test_the_cache_is_symmetric_in_its_key(engine):
+    """(a, b) and (b, a) must hit the same entry, or the cache doubles in size
+    and — worse — can hand back two different objects for one pair."""
+    before = len(engine._sim_cache)
+    engine.weighted_similarity("tomato", "basil")
+    engine.weighted_similarity("basil", "tomato")
+    after = len(engine._sim_cache)
+    assert after - before <= 1, "the same pair took two cache slots"
+
+
+def test_a_caller_cannot_corrupt_a_cached_result(engine):
+    """The shared-compound set is handed straight to callers and several of
+    them do set arithmetic on it. If it were mutable and shared, one caller's
+    edit would silently change every later answer for that pair."""
+    _score, shared = engine.weighted_similarity("garlic", "onion")
+    assert isinstance(shared, frozenset)
+    with pytest.raises(AttributeError):
+        shared.add("not_a_compound")
+    _score2, shared2 = engine.weighted_similarity("garlic", "onion")
+    assert shared2 == shared
+
+
+def test_the_union_shortcut_matches_a_direct_computation(engine, ffmod):
+    """W(A|B) is derived as W(A) + W(B) - W(A&B) rather than summed directly.
+    Algebraically identical; in floating point it is a different order of
+    operations, so it is checked rather than assumed."""
+    for a, b in itertools.islice(itertools.combinations(ffmod.INGREDIENTS, 2), 4000):
+        ca = ffmod.INGREDIENTS[a].compounds
+        cb = ffmod.INGREDIENTS[b].compounds
+        if not (ca & cb):
+            continue
+        direct = engine._sum_weights(ca | cb)
+        derived = (engine._profile_weight[a] + engine._profile_weight[b]
+                   - engine._sum_weights(ca & cb))
+        assert abs(direct - derived) < 1e-9, f"{a}/{b}: {direct} vs {derived}"
+
+
+def test_profile_weights_cover_every_ingredient(engine, ffmod):
+    """A missing entry would raise KeyError mid-score rather than degrade."""
+    assert set(engine._profile_weight) == set(ffmod.INGREDIENTS)

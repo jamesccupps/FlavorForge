@@ -2174,6 +2174,23 @@ class FlavorEngine:
         self._weight = {c: self._compound_weight(c) for c in self._compound_freq}
         self._max_weight = max(self._weight.values()) if self._weight else 1.0
 
+        # Each ingredient's total profile weight, so weighted_similarity can
+        # get the union without summing over it:
+        #     W(A | B) == W(A) + W(B) - W(A & B)
+        # That halves the work per call and, more usefully, removes a sort
+        # over the larger of the two sets.
+        self._profile_weight = {
+            name: self._sum_weights(ing.compounds)
+            for name, ing in self.ingredients.items()
+        }
+
+        # Memoised pair scores. The database is immutable at runtime, so a
+        # pair's score is a constant. One Surprise Me asks for 12,836 of them
+        # across ~2,400 novelty evaluations, and the Graph tab re-runs the
+        # whole 303x303 sweep on every threshold nudge and every category
+        # filter, which is 45,753 pairs each time.
+        self._sim_cache: Dict[Tuple[str, str], Tuple[float, Set[str]]] = {}
+
     def _sum_weights(self, compounds) -> float:
         """Total weight of a set of compounds, summed in a fixed order.
 
@@ -2255,18 +2272,34 @@ class FlavorEngine:
         high/medium/low score colouring, both of which assume a full 0..1
         spread.
         """
+        key = (name_a, name_b) if name_a <= name_b else (name_b, name_a)
+        hit = self._sim_cache.get(key)
+        if hit is not None:
+            return hit
+
         ing_a = self.ingredients.get(name_a)
         ing_b = self.ingredients.get(name_b)
         if not ing_a or not ing_b:
             return 0.0, set()
         shared = ing_a.compounds & ing_b.compounds
         if not shared:
-            return 0.0, set()
+            result = (0.0, frozenset())
+            self._sim_cache[key] = result
+            return result
 
-        union_weight = self._sum_weights(ing_a.compounds | ing_b.compounds)
+        # W(A | B) == W(A) + W(B) - W(A & B), so only the intersection needs
+        # summing — and the intersection is the smaller set.
+        shared_weight = self._sum_weights(shared)
+        union_weight = (self._profile_weight[name_a]
+                        + self._profile_weight[name_b] - shared_weight)
         if union_weight <= 0:
             return 0.0, shared
-        return min(self._sum_weights(shared) / union_weight, 1.0), shared
+        # frozenset, because the value is cached and handed to callers: a
+        # mutable set here would let one caller's edit corrupt every later
+        # answer for the same pair.
+        result = (min(shared_weight / union_weight, 1.0), frozenset(shared))
+        self._sim_cache[key] = result
+        return result
 
     def get_pairings(self, ingredient_name: str, top_n: int = 20) -> List[dict]:
         if ingredient_name not in self.ingredients:
