@@ -222,6 +222,51 @@ def test_the_queries_are_mutually_exclusive(cli):
         cli("--pair", "garlic", "--recipe")
 
 
+# ─── input that used to be accepted and quietly mean something else ────
+
+def test_a_misspelt_dish_type_is_an_error_not_any_dish(cli, capsys):
+    """"Soupp" used to fall back to every template and print a chowder, a
+    curry, anything, with no sign the filter had been dropped."""
+    with pytest.raises(SystemExit) as exc:
+        cli("--recipe", "--dish-type", "Soupp")
+    assert exc.value.code == 2
+    assert "Pizza & Flatbread" in capsys.readouterr().err, "should list the real ones"
+
+
+def test_a_dish_type_is_matched_without_regard_to_case(cli):
+    code, out, _ = cli("--recipe", "--dish-type", "pizza & flatbread")
+    assert code == 0 and "Pizza & Flatbread" in out
+
+
+@pytest.mark.parametrize("n", ["0", "-2"])
+def test_n_must_be_positive(cli, n):
+    """-n -2 sliced the last two rows off the full ranking and printed the
+    remaining few hundred."""
+    with pytest.raises(SystemExit):
+        cli("--pair", "garlic", "-n", n)
+
+
+@pytest.mark.parametrize("argv", [
+    ("--seed", "salmon"),
+    ("--diet", "vegan"),
+    ("--dish-type", "Soup"),
+    ("--category", "herb"),
+])
+def test_an_option_without_its_command_is_an_error_not_the_gui(cli, ffmod,
+                                                              monkeypatch, argv):
+    """Each of these skipped every branch and fell through to opening the GUI."""
+    monkeypatch.setattr(ffmod, "FlavorForgeGUI",
+                        lambda: pytest.fail("opened the GUI"))
+    with pytest.raises(SystemExit) as exc:
+        cli(*argv)
+    assert exc.value.code == 2
+
+
+def test_bridging_an_ingredient_to_itself_is_refused(cli):
+    code, out, err = cli("--bridge", "garlic", "garlic")
+    assert code == 2 and "two different" in err and out == ""
+
+
 # ─── headless ──────────────────────────────────────────────────────────
 
 def test_the_module_imports_without_tkinter(ffmod):

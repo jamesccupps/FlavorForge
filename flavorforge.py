@@ -5980,6 +5980,28 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                         version="FlavorForge " + __version__)
     args = parser.parse_args(argv)
 
+    # Each of these used to be accepted and quietly mean something else:
+    # -n -2 sliced off the last two results and printed the other three
+    # hundred; a misspelt --dish-type fell back to every template; and
+    # --seed or --diet without --recipe skipped every branch below and
+    # opened the GUI.
+    if args.n < 1:
+        parser.error("-n must be at least 1")
+    stray = [flag for flag, value in (("--seed", args.seed),
+                                      ("--dish-type", args.dish_type),
+                                      ("--diet", args.diet)) if value]
+    if stray and not args.recipe:
+        parser.error("%s only applies with --recipe" % ", ".join(stray))
+    if args.category and not args.list:
+        parser.error("--category only applies with --list")
+    if args.dish_type:
+        wanted = args.dish_type.strip().lower()
+        match = next((d for d in DISH_TYPES if d.lower() == wanted), None)
+        if match is None:
+            parser.error("unknown dish type %r. Known: %s"
+                         % (args.dish_type, ", ".join(DISH_TYPES[1:])))
+        args.dish_type = match
+
     engine = FlavorEngine()
 
     if args.list:
@@ -6046,6 +6068,11 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         b = _resolve(args.bridge[1])
         if not b:
             return _die_unknown(args.bridge[1])
+        if a == b:
+            # The GUI refuses this; the CLI used to answer it, with garlic
+            # powder "bridging" garlic to itself at 1.000.
+            print("Pick two different ingredients to bridge.", file=sys.stderr)
+            return 2
         bridges = engine.find_bridge(a, b)
         print("Bridging %s and %s:\n" % (INGREDIENTS[a].name, INGREDIENTS[b].name))
         if not bridges:
