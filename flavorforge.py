@@ -3698,7 +3698,14 @@ class AIChef:
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     models = [m["name"] for m in data.get("models", [])]
-                    if self.ollama_model in models or any(self.ollama_model in m for m in models):
+                    # Exact, with Ollama's own rule that an untagged name
+                    # means ":latest". This was a substring test, so "qwen"
+                    # matched "qwen2.5:14b", Test said the model was there,
+                    # and Generate then failed with a 404.
+                    wanted = self.ollama_model
+                    if ":" not in wanted:
+                        wanted += ":latest"
+                    if wanted in models:
                         return True, f"Connected. Model '{self.ollama_model}' available."
                     else:
                         return True, f"Connected but '{self.ollama_model}' not found. Available: {', '.join(models[:5])}"

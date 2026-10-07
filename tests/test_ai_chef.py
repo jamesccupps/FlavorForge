@@ -387,6 +387,24 @@ def test_an_ollama_reply_cut_at_its_length_limit_says_so(chef, stub):
 
 # ─── the Test button ───────────────────────────────────────────────────
 
+@pytest.mark.parametrize("configured,available", [
+    ("qwen2.5:14b", True),
+    ("llama3", True),            # untagged means :latest, which is pulled
+    ("qwen", False),             # was a substring match, so this "passed"
+    ("qwen2.5", False),          # only :14b is pulled, not :latest
+])
+def test_the_ollama_test_button_matches_models_the_way_ollama_does(
+        chef, stub, configured, available):
+    s = stub(body=json.dumps({"models": [{"name": "qwen2.5:14b"},
+                                         {"name": "llama3:latest"}]}).encode(),
+             content_type="application/json")
+    chef.provider = "ollama"
+    chef.ollama_url = s.url.rsplit("/v1/", 1)[0]
+    chef.ollama_model = configured
+    ok, msg = chef.test_connection()
+    assert ok, "the server answered, so the connection itself is fine"
+    assert ("not found" not in msg) is available, msg
+
 def _point_api_at(ffmod, monkeypatch, stub_server):
     """Keep the path, swap the host: these requests are GETs to /v1/models/…"""
     real = ffmod.urllib.request.Request
