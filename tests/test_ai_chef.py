@@ -138,17 +138,46 @@ def test_the_model_roster_is_well_formed(ffmod):
         assert model_id.startswith("claude-")
 
 
+def _load_with_model(ffmod, tmp_path, monkeypatch, model):
+    cfg = tmp_path / ".flavorforge_config.json"
+    cfg.write_text(json.dumps({"anthropic_model": model,
+                               "anthropic_key": "sk-ant-x"}), encoding="utf-8")
+    monkeypatch.setattr(ffmod.os.path, "expanduser", lambda p: str(tmp_path))
+    return ffmod.AIChef()
+
+
 def test_a_retired_model_in_a_saved_config_is_migrated(ffmod, tmp_path, monkeypatch):
     """Someone upgrading from 3.0 has claude-sonnet-4-20250514 in their config.
     Left alone it would 404 on the first generation with no explanation."""
-    cfg = tmp_path / ".flavorforge_config.json"
-    cfg.write_text(json.dumps({"anthropic_model": "claude-sonnet-4-20250514",
-                               "anthropic_key": "sk-ant-x"}), encoding="utf-8")
-    monkeypatch.setattr(ffmod.os.path, "expanduser", lambda p: str(tmp_path))
-    c = ffmod.AIChef()
-    assert c.anthropic_model == ffmod.DEFAULT_CLAUDE_MODEL
+    c = _load_with_model(ffmod, tmp_path, monkeypatch, "claude-sonnet-4-20250514")
+    assert c.anthropic_model == "claude-sonnet-5-5"
     assert c.retired_model == "claude-sonnet-4-20250514"
     assert c.anthropic_key == "sk-ant-x", "migration must not lose the key"
+
+
+@pytest.mark.parametrize("old,new", [
+    ("claude-opus-5", "claude-opus-5-5"),
+    ("claude-sonnet-5", "claude-sonnet-5-5"),
+    ("claude-haiku-4-5", "claude-haiku-5-5"),
+])
+def test_a_migration_keeps_the_tier_the_user_chose(ffmod, tmp_path, monkeypatch, old, new):
+    """3.2 sent every id it no longer listed to the default, so someone who
+    had picked Haiku for cost was moved onto Opus without being asked."""
+    c = _load_with_model(ffmod, tmp_path, monkeypatch, old)
+    assert c.anthropic_model == new
+    assert c.retired_model == old
+
+
+def test_an_unknown_model_falls_back_to_the_default(ffmod, tmp_path, monkeypatch):
+    c = _load_with_model(ffmod, tmp_path, monkeypatch, "claude-made-up-9")
+    assert c.anthropic_model == ffmod.DEFAULT_CLAUDE_MODEL
+
+
+def test_every_successor_is_in_the_roster(ffmod):
+    roster = {m[1] for m in ffmod.CLAUDE_MODELS}
+    for old, new in ffmod.CLAUDE_MODEL_SUCCESSORS.items():
+        assert new in roster, f"{old} migrates to {new}, which is not offered"
+        assert old not in roster, f"{old} is offered and also migrated away"
 
 
 def test_a_current_model_in_a_saved_config_is_left_alone(ffmod, tmp_path, monkeypatch):

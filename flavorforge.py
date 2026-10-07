@@ -3393,17 +3393,32 @@ class FlavorEngine:
 # picking a current model is a choice the user can make without editing source.
 # (label, model id, note)
 CLAUDE_MODELS = [
-    ("Claude Opus 5", "claude-opus-5", "most capable — best recipes, highest cost"),
-    ("Claude Sonnet 5", "claude-sonnet-5", "strong and cheaper — a good default"),
-    ("Claude Haiku 4.5", "claude-haiku-4-5", "fastest and cheapest"),
+    ("Claude Opus 5.5", "claude-opus-5-5", "most capable — best recipes, highest cost"),
+    ("Claude Sonnet 5.5", "claude-sonnet-5-5", "strong and cheaper — a good default"),
+    ("Claude Haiku 5.5", "claude-haiku-5-5", "fastest and cheapest"),
 ]
 DEFAULT_CLAUDE_MODEL = CLAUDE_MODELS[0][1]
 
+# Ids earlier versions offered, mapped to the same tier today. A saved model is
+# a cost decision as much as a quality one: moving someone who picked Haiku
+# onto the default Opus would multiply their bill without asking, which is what
+# a blanket "anything unknown becomes the default" did. Only ids this table
+# does not know fall back to the default.
+CLAUDE_MODEL_SUCCESSORS = {
+    "claude-opus-5": "claude-opus-5-5",
+    "claude-sonnet-5": "claude-sonnet-5-5",
+    "claude-haiku-4-5": "claude-haiku-5-5",
+    "claude-sonnet-4-20250514": "claude-sonnet-5-5",    # the 3.0 default
+}
+
 # A full recipe in the requested format — overview, ingredients, numbered
 # instructions, the science, a drink pairing and three tips — runs well past
-# 4096 tokens once the model is being genuinely specific. Streaming means a
-# large ceiling costs nothing in latency.
-CLAUDE_MAX_TOKENS = 16000
+# 4096 tokens once the model is being genuinely specific. Every model in the
+# roster also thinks before it answers, and thinking tokens count against this
+# ceiling even though their text is never shown, so a limit sized for the
+# reply alone can cut the reply off. Streaming means a large ceiling costs
+# nothing in latency, and only tokens actually generated are billed.
+CLAUDE_MAX_TOKENS = 64000
 
 
 def _write_json_atomic(path: str, data, secret: bool = False) -> bool:
@@ -3483,12 +3498,14 @@ class AIChef:
         # first .get above rather than falling through to here, so the shape is
         # checked before it is used.
 
-        # A model id saved by an older version may no longer exist. Rather
-        # than let the first generation fail with a 404 from the API, move it
-        # forward and say nothing -- the dropdown shows what is now selected.
+        # A model id saved by an older version may no longer be offered.
+        # Rather than let the first generation fail with a 404 from the API,
+        # move it forward -- to its successor in the same tier where there is
+        # one -- and say so beside the dropdown.
         if self.anthropic_model not in {m[1] for m in CLAUDE_MODELS}:
             self.retired_model = self.anthropic_model
-            self.anthropic_model = DEFAULT_CLAUDE_MODEL
+            self.anthropic_model = CLAUDE_MODEL_SUCCESSORS.get(
+                self.anthropic_model, DEFAULT_CLAUDE_MODEL)
         else:
             self.retired_model = ""
 
@@ -5621,10 +5638,15 @@ class FlavorForgeGUI:
             self.api_key_frame.pack(fill=tk.X, pady=(0, 5), after=self.api_key_frame.master.winfo_children()[0])
 
     def _update_model_hint(self, event=None):
-        note = next((m[2] for m in CLAUDE_MODELS if m[1] == self.ai_model_var.get()), "")
+        selected = self.ai_model_var.get()
+        note = next((m[2] for m in CLAUDE_MODELS if m[1] == selected), "")
+        # Only while the model it was moved to is still the one selected. It
+        # used to stay up after the user picked something else, describing a
+        # choice they had already overridden. "No longer offered" rather than
+        # "retired": the old ids are usually still served, just superseded.
         retired = getattr(self.ai_chef, "retired_model", "")
-        if retired:
-            note = f"{retired} was retired — switched to this one"
+        if retired and selected == self.ai_chef.anthropic_model:
+            note = f"{retired} is no longer offered — switched to this one"
         self.ai_model_hint.config(text=f"  {note}" if note else "")
 
     def _toggle_key_visibility(self):
@@ -5638,6 +5660,7 @@ class FlavorForgeGUI:
         else:
             self.ai_chef.anthropic_key = self.ai_key_var.get()
             self.ai_chef.anthropic_model = self.ai_model_var.get()
+            self.ai_chef.retired_model = ""      # saved: the choice is theirs now
         self.ai_chef.save_config()
         self.ai_status.config(text="Settings saved!", fg=self.colors["success"])
         self.root.after(3000, lambda: self.ai_status.config(text=""))

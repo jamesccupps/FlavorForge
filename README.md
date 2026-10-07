@@ -187,9 +187,12 @@ FlavorForge works standalone — the AI Chef tab is optional.
 
 | Model | When |
 |---|---|
-| `claude-opus-5` | most capable — best recipes, highest cost (default) |
-| `claude-sonnet-5` | strong and cheaper — a good everyday default |
-| `claude-haiku-4-5` | fastest and cheapest |
+| `claude-opus-5-5` | most capable — best recipes, highest cost (default) |
+| `claude-sonnet-5-5` | strong and cheaper — a good everyday default |
+| `claude-haiku-5-5` | fastest and cheapest |
+
+A model saved by an earlier version moves to its successor in the same tier —
+Opus to Opus, Haiku to Haiku — and the AI tab says so beside the dropdown.
 
 Responses stream, so the recipe types itself out rather than appearing all at
 once after a wait. If one is ever cut short by the token limit, it says so
@@ -250,7 +253,7 @@ FlavorForge saves user data to your home directory:
 - **82 aroma compounds** with descriptions
 - **1,632 flavor links**
 - **102 recipe templates** across 16 dish types
-- **251 tests**, run on Linux and Windows across Python 3.10–3.13
+- **257 tests**, run on Linux and Windows across Python 3.10–3.13
 - **24 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter

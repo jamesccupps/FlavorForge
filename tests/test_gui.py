@@ -26,6 +26,22 @@ def app(ffmod, tmp_path, monkeypatch):
     gui.root.destroy()
 
 
+# ─── AI Chef settings ──────────────────────────────────────────────────
+
+def test_the_migration_note_goes_away_once_another_model_is_picked(app, ffmod):
+    """It used to stay beside the dropdown whatever was selected, describing
+    a choice the user had already overridden."""
+    app.ai_chef.retired_model = "claude-opus-5"
+    app.ai_chef.anthropic_model = "claude-opus-5-5"
+    app.ai_provider_var.set("anthropic")
+    app._on_provider_change()
+    assert "claude-opus-5 is no longer offered" in app.ai_model_hint.cget("text")
+
+    app.ai_model_var.set("claude-haiku-5-5")
+    app._update_model_hint()
+    assert "no longer offered" not in app.ai_model_hint.cget("text")
+
+
 # ─── Build a Dish ──────────────────────────────────────────────────────
 
 def test_build_tab_starts_with_the_template_it_displays(app):
