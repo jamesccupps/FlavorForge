@@ -5259,10 +5259,31 @@ class FlavorForgeGUI:
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Bind mousewheel
+        # Mouse wheel, only while the pointer is over the list. This was a
+        # permanent bind_all, so the wheel scrolled this list from anywhere in
+        # the app -- including the recipe results right beside it, which then
+        # scrolled both at once. The step is the sign of the delta, not
+        # delta/120: macOS reports small deltas that rounded to no scroll at
+        # all, and X11 sends Button-4/5 rather than <MouseWheel>.
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel, add="+")
+            if getattr(event, "num", None) in (4, 5):
+                step = -1 if event.num == 4 else 1
+            else:
+                step = -1 if event.delta > 0 else 1
+            canvas.yview_scroll(step, "units")
+
+        wheel_events = ("<MouseWheel>", "<Button-4>", "<Button-5>")
+
+        def _wheel_on(_event):
+            for ev in wheel_events:
+                canvas.bind_all(ev, _on_mousewheel)
+
+        def _wheel_off(_event):
+            for ev in wheel_events:
+                canvas.unbind_all(ev)
+
+        list_frame.bind("<Enter>", _wheel_on)
+        list_frame.bind("<Leave>", _wheel_off)
 
         self.pantry_vars = {}  # ingredient_name -> BooleanVar
         self._populate_pantry_checkboxes()

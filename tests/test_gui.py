@@ -69,6 +69,16 @@ def test_a_newer_ai_generation_owns_the_pane(app, monkeypatch):
     assert old_stop() and not new_stop()
 
 
+# ─── Pantry ────────────────────────────────────────────────────────────
+
+def test_the_mouse_wheel_is_not_captured_app_wide(app):
+    """The pantry list bound the wheel with bind_all for the life of the app,
+    so scrolling the recipe results beside it scrolled the list too. It is
+    bound only while the pointer is over the list now."""
+    for ev in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+        assert app.root.bind_all(ev) == "", f"{ev} is bound app-wide at startup"
+
+
 # ─── Build a Dish ──────────────────────────────────────────────────────
 
 def test_build_tab_starts_with_the_template_it_displays(app):
