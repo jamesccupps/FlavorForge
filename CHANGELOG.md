@@ -1,5 +1,81 @@
 # Changelog
 
+## [3.3.0] — 2026-10-07
+
+An audit pass over 3.2: mostly places where the app said one thing and did
+another. Each fix landed as its own commit with a test that fails on 3.2.
+
+### Changed
+
+- **Three ingredients were in the database twice** under different keys with
+  the same display name: green beans, sesame seeds and red wine (the last
+  added by the 3.1 audit beside a v3.0 entry). One of each was unreachable
+  from the Pairing tab, the pantry listed both, and their compounds were
+  double-counted in every rarity weight — so **pairing scores shift
+  slightly**. Merged as a union of compounds; sesame is now a nut, not a
+  spice. 329 → 326 ingredients. Old keys still resolve on the CLI and in a
+  saved pantry.
+- **A diet is a constraint.** A seed the diet forbids (`--seed bacon --diet
+  vegan`) is refused instead of placed, and a dish type with no template the
+  diet allows (vegan Sauce & Dip) says so instead of silently falling back
+  to aioli.
+- **Claude models:** Opus 5.5 (default), Sonnet 5.5, Haiku 5.5. A saved
+  model moves to its successor in the same tier — 3.2 sent anything
+  unlisted to Opus, including users who had picked Haiku for cost.
+  `max_tokens` 16000 → 64000, since thinking counts against it.
+- The CLI rejects input it used to reinterpret: a misspelt `--dish-type`,
+  `-n` below 1, `--bridge` with the same ingredient twice, and recipe or
+  list options given without `--recipe` / `--list` (which opened the GUI).
+
+### Fixed
+
+- **Build a Dish** forgot the template it opened with, so the first pick
+  showed the welcome screen and Build Recipe asked for a template that was
+  on screen.
+- **High-DPI displays:** fonts scaled and fixed pixel sizes did not. At 200%
+  tab labels were truncated and half of each toolbar was off the window.
+- **AI Chef, Claude:** the Test button reported success for any non-empty
+  key without contacting anything; it now checks key and model via
+  `/v1/models` at no token cost.
+- **AI Chef, Ollama:** a stream cut short left "Generating..." up forever;
+  in-stream `{"error": ...}` lines and HTTP error bodies were discarded; a
+  reply cut at the length limit looked finished; and Test matched model
+  names by substring, so `qwen` passed and Generate then 404'd.
+- **AI Chef:** two generations in flight wrote into the same pane and the
+  same saved file. The newer one now owns the pane and the older stops.
+- The config's temp file — holding the API key — was world-readable under a
+  022 umask until a chmod after the write. It is now created 0600.
+- The Pantry list captured the mouse wheel app-wide, and did not scroll at
+  all on macOS or X11.
+- Save buttons said "Saved!" whether or not the write succeeded.
+- Hand-built dishes had no diet check; the window title said v3.0.
+
+### Removed
+
+- `FlavorEngine.jaccard_similarity`, which had no callers, and a test that
+  was defined twice so that one copy never ran.
+
+### Notes
+
+- CI adds Python 3.14 and runs the GUI tests on Linux under Xvfb; they
+  previously skipped there for want of a display.
+- README facts corrected — 11 of 17 category-table rows were wrong — and
+  the table and link count are now asserted against the data. The
+  screenshot the README referenced did not exist; it does now.
+- 237 → 292 tests.
+
+### Known issue, not changed
+
+- **The novelty score does not discriminate.** Every generated recipe scores
+  0.80–1.00, so every one is labelled "HIGHLY NOVEL" and the AI prompt
+  always asks for an unconventional dish. Its similarity sweet spot (0.35)
+  sat at the 97.5th percentile of random recipes even under the 3.0 scoring
+  and is off the scale under 3.1's IDF weighting; and the generator shows
+  the best of 60 candidates, so the displayed value is always a maximum.
+  `generate_recipe`'s `target_novelty` argument is accepted and ignored.
+  Fixing it means deciding what the score should measure, which is left
+  open rather than guessed.
+
 ## [3.2.0] — 2026-08-24
 
 Answers "what else should this have?" with what the data said, not what
