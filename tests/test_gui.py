@@ -26,6 +26,11 @@ def app(ffmod, tmp_path, monkeypatch):
     gui.root.destroy()
 
 
+def test_the_window_title_carries_the_real_version(app, ffmod):
+    """It said v3.0 through 3.1 and 3.2: a version typed into a string."""
+    assert app.root.title().endswith("v" + ffmod.__version__)
+
+
 # ─── AI Chef settings ──────────────────────────────────────────────────
 
 def test_the_migration_note_goes_away_once_another_model_is_picked(app, ffmod):

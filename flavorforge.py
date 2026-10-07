@@ -3759,7 +3759,7 @@ class FlavorForgeGUI:
         self.engine = FlavorEngine()
         self.ai_chef = AIChef()
         self.root = tk.Tk()
-        self.root.title("FlavorForge — Procedural Cooking Engine v3.0")
+        self.root.title(f"FlavorForge — Procedural Cooking Engine v{__version__}")
         self.root.geometry("1400x900")
         self.root.configure(bg="#1a1a2e")
 
@@ -3803,7 +3803,7 @@ class FlavorForgeGUI:
         header.pack(fill=tk.X, padx=10, pady=(10, 0))
         header.pack_propagate(False)
 
-        tk.Label(header, text="⚗ FLAVORFORGE v3", font=("Consolas", 20, "bold"),
+        tk.Label(header, text=f"⚗ FLAVORFORGE v{__version__}", font=("Consolas", 20, "bold"),
                  bg=self.colors["bg"], fg=self.colors["highlight"]).pack(side=tk.LEFT)
         tk.Label(header, text="Molecular Flavor Pairing + AI Chef",
                  font=("Consolas", 10), bg=self.colors["bg"],
