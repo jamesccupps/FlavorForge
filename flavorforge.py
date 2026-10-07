@@ -3520,17 +3520,22 @@ class AIChef:
         }
         return _write_json_atomic(self._config_path(), cfg, secret=True)
 
-    def generate(self, prompt: str, callback=None, error_callback=None):
-        """Generate response in a background thread. Calls callback with chunks."""
-        if self.provider == "ollama":
-            thread = threading.Thread(target=self._ollama_generate,
-                                       args=(prompt, callback, error_callback), daemon=True)
-        else:
-            thread = threading.Thread(target=self._anthropic_generate,
-                                       args=(prompt, callback, error_callback), daemon=True)
+    def generate(self, prompt: str, callback=None, error_callback=None,
+                 should_stop=None):
+        """Generate response in a background thread. Calls callback with chunks.
+
+        should_stop, if given, is polled between chunks; once it returns true
+        the stream is abandoned without any further callback. The GUI uses it
+        when a newer generation replaces this one, so the old stream neither
+        writes into the new one's pane nor keeps spending tokens.
+        """
+        target = (self._ollama_generate if self.provider == "ollama"
+                  else self._anthropic_generate)
+        thread = threading.Thread(target=target, daemon=True,
+                                  args=(prompt, callback, error_callback, should_stop))
         thread.start()
 
-    def _ollama_generate(self, prompt, callback, error_callback):
+    def _ollama_generate(self, prompt, callback, error_callback, should_stop=None):
         try:
             url = f"{self.ollama_url}/api/generate"
             payload = json.dumps({
@@ -3544,6 +3549,8 @@ class AIChef:
             finished = None
             with urllib.request.urlopen(req, timeout=120) as resp:
                 for line in resp:
+                    if should_stop and should_stop():
+                        return
                     try:
                         data = json.loads(line.decode("utf-8"))
                     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -3594,7 +3601,7 @@ class AIChef:
             if error_callback:
                 error_callback(str(e))
 
-    def _anthropic_generate(self, prompt, callback, error_callback):
+    def _anthropic_generate(self, prompt, callback, error_callback, should_stop=None):
         """Stream a completion from the Claude API over the raw HTTP endpoint.
 
         Streaming rather than a single blocking read, for three reasons: it
@@ -3632,6 +3639,8 @@ class AIChef:
             stop_reason = None
             with urllib.request.urlopen(req, timeout=180) as resp:
                 for raw in resp:
+                    if should_stop and should_stop():
+                        return
                     line = raw.decode("utf-8", "replace").strip()
                     # Server-sent events: "event:" lines carry the type and
                     # "data:" lines the JSON. The data payload repeats its own
@@ -5765,16 +5774,30 @@ class FlavorForgeGUI:
         self.ai_spinner.config(text="⏳ Generating...")
         self.ai_save_status.config(text="")
 
+        # One generation owns the pane at a time. Starting another while the
+        # first was still streaming left both threads appending into the same
+        # text box and the same ai_response_text, so the saved recipe was two
+        # recipes interleaved, and whichever finished first set "Done" while
+        # the other was still writing. Each callback now checks, on the Tk
+        # thread, that it still belongs to the newest generation.
+        self._ai_generation = getattr(self, "_ai_generation", 0) + 1
+        gen = self._ai_generation
+
+        def current():
+            return gen == self._ai_generation
+
         def on_chunk(text):
             if text is None:
-                self.root.after(0, lambda: self.ai_spinner.config(text="✅ Done — hit Save to keep"))
+                self.root.after(0, lambda: current() and self.ai_spinner.config(
+                    text="✅ Done — hit Save to keep"))
                 return
-            self.root.after(0, lambda t=text: self._append_ai_text(t))
+            self.root.after(0, lambda t=text: current() and self._append_ai_text(t))
 
         def on_error(msg):
-            self.root.after(0, lambda m=msg: self._show_ai_error(m))
+            self.root.after(0, lambda m=msg: current() and self._show_ai_error(m))
 
-        self.ai_chef.generate(prompt, callback=on_chunk, error_callback=on_error)
+        self.ai_chef.generate(prompt, callback=on_chunk, error_callback=on_error,
+                              should_stop=lambda: not current())
 
     def _append_ai_text(self, text):
         self.ai_response_text += text  # Track full response

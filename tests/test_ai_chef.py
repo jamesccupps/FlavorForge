@@ -285,6 +285,18 @@ def test_non_text_deltas_are_ignored(ffmod, chef, monkeypatch, stub):
     assert text == "visible"
 
 
+def test_a_stream_told_to_stop_goes_quiet(ffmod, chef, monkeypatch, stub):
+    """A superseded generation must neither write nor report completion."""
+    s = stub(body=_text_stream(["one", "two", "three"]))
+    real_request = ffmod.urllib.request.Request
+    monkeypatch.setattr(ffmod.urllib.request, "Request",
+                        lambda url, *a, **kw: real_request(s.url, *a, **kw))
+    seen, errors = [], []
+    chef._anthropic_generate("p", seen.append, errors.append,
+                             should_stop=lambda: True)
+    assert seen == [] and errors == []
+
+
 # ─── errors ────────────────────────────────────────────────────────────
 
 def test_a_missing_key_is_reported_before_any_request(ffmod, chef, monkeypatch, stub):

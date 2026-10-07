@@ -42,6 +42,33 @@ def test_the_migration_note_goes_away_once_another_model_is_picked(app, ffmod):
     assert "no longer offered" not in app.ai_model_hint.cget("text")
 
 
+def test_a_newer_ai_generation_owns_the_pane(app, monkeypatch):
+    """Two generations in flight used to append into the same pane and the
+    same saved text, so "Save AI Recipe" could write two recipes spliced
+    together. The older stream is now ignored and told to stop."""
+    calls = []
+    monkeypatch.setattr(app.ai_chef, "generate",
+                        lambda prompt, callback=None, error_callback=None,
+                        should_stop=None: calls.append((callback, error_callback,
+                                                        should_stop)))
+    recipe = app.engine.generate_recipe(seed_ingredient="salmon")
+    app._ai_generate_from_recipe(recipe)
+    app._ai_generate_from_recipe(recipe)
+    (old_cb, old_err, old_stop), (new_cb, _, new_stop) = calls
+
+    old_cb("STALE ")
+    new_cb("FRESH")
+    old_err("stale failure")
+    old_cb(None)
+    app.root.update()
+
+    assert app.ai_response_text == "FRESH"
+    assert "STALE" not in app.ai_output.get("1.0", "end")
+    assert "stale failure" not in app.ai_output.get("1.0", "end")
+    assert "Done" not in app.ai_spinner.cget("text"), "the old stream finished, not this one"
+    assert old_stop() and not new_stop()
+
+
 # ─── Build a Dish ──────────────────────────────────────────────────────
 
 def test_build_tab_starts_with_the_template_it_displays(app):
