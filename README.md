@@ -194,6 +194,9 @@ FlavorForge works standalone — the AI Chef tab is optional.
 A model saved by an earlier version moves to its successor in the same tier —
 Opus to Opus, Haiku to Haiku — and the AI tab says so beside the dropdown.
 
+**Test** checks the key and the model against the API without spending any
+tokens, so a typo'd key shows up there rather than at Generate.
+
 Responses stream, so the recipe types itself out rather than appearing all at
 once after a wait. If one is ever cut short by the token limit, it says so
 instead of just stopping mid-step.
@@ -253,7 +256,7 @@ FlavorForge saves user data to your home directory:
 - **82 aroma compounds** with descriptions
 - **1,632 flavor links**
 - **102 recipe templates** across 16 dish types
-- **257 tests**, run on Linux and Windows across Python 3.10–3.13
+- **261 tests**, run on Linux and Windows across Python 3.10–3.13
 - **24 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter

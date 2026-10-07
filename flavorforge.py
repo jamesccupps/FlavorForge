@@ -39,6 +39,7 @@ import json
 import threading
 import urllib.request
 import urllib.error
+import urllib.parse
 import os
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -3668,7 +3669,27 @@ class AIChef:
             else:
                 if not self.anthropic_key:
                     return False, "No API key configured."
-                return True, f"Anthropic API key set. Model: {self.anthropic_model}"
+                # Through 3.2 this reported success whenever the key field was
+                # non-empty, without contacting anything, so a typo'd key or a
+                # dead model passed the Test button and failed at Generate.
+                # Fetching the model's own entry checks both of the things
+                # that actually go wrong -- the key (401) and the model id
+                # (404) -- and costs no tokens.
+                req = urllib.request.Request(
+                    "https://api.anthropic.com/v1/models/"
+                    + urllib.parse.quote(self.anthropic_model, safe=""),
+                    headers={"x-api-key": self.anthropic_key,
+                             "anthropic-version": "2023-06-01"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    info = json.loads(resp.read().decode("utf-8"))
+                name = info.get("display_name") or self.anthropic_model
+                return True, f"Key accepted. {name} is available."
+        except urllib.error.HTTPError as e:
+            if self.provider != "ollama" and e.code == 401:
+                return False, "HTTP 401 — the API key was rejected."
+            if self.provider != "ollama" and e.code == 404:
+                return False, f"HTTP 404 — model {self.anthropic_model!r} was not found."
+            return False, f"Connection failed: HTTP {e.code} {e.reason}"
         except Exception as e:
             return False, f"Connection failed: {e}"
 

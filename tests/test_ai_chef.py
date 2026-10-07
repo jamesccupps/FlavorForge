@@ -64,6 +64,14 @@ class _StubAPI:
                 self.end_headers()
                 self.wfile.write(outer.body)
 
+            def do_GET(self):
+                outer.requests.append({"path": self.path,
+                                       "headers": dict(self.headers)})
+                self.send_response(outer.status)
+                self.send_header("Content-Type", outer.content_type)
+                self.end_headers()
+                self.wfile.write(outer.body)
+
             def log_message(self, *a):
                 pass
 
@@ -313,6 +321,54 @@ def test_an_unreachable_host_is_reported_not_raised(ffmod, chef, monkeypatch):
     errors = []
     chef._anthropic_generate("p", lambda t: None, errors.append)
     assert errors
+
+
+# ─── the Test button ───────────────────────────────────────────────────
+
+def _point_api_at(ffmod, monkeypatch, stub_server):
+    """Keep the path, swap the host: these requests are GETs to /v1/models/…"""
+    real = ffmod.urllib.request.Request
+    base = stub_server.url.rsplit("/v1/", 1)[0]
+
+    def _redirect(url, *a, **kw):
+        return real(url.replace("https://api.anthropic.com", base), *a, **kw)
+
+    monkeypatch.setattr(ffmod.urllib.request, "Request", _redirect)
+
+
+def test_the_claude_test_button_actually_checks_the_key_and_model(
+        ffmod, chef, monkeypatch, stub):
+    """Through 3.2 it returned success for any non-empty key without making a
+    request, so a typo'd key passed Test and failed at Generate."""
+    s = stub(body=json.dumps({"id": "claude-opus-5-5",
+                              "display_name": "Claude Opus 5.5"}).encode(),
+             content_type="application/json")
+    _point_api_at(ffmod, monkeypatch, s)
+    ok, msg = chef.test_connection()
+    assert ok, msg
+    assert "Claude Opus 5.5" in msg
+    req = s.requests[0]
+    assert req["path"] == f"/v1/models/{chef.anthropic_model}"
+    h = {k.lower(): v for k, v in req["headers"].items()}
+    assert h["x-api-key"] == "sk-ant-test"
+    assert h["anthropic-version"] == "2023-06-01"
+
+
+@pytest.mark.parametrize("status,needle", [(401, "rejected"), (404, "not found")])
+def test_the_claude_test_button_reports_a_bad_key_or_model(
+        ffmod, chef, monkeypatch, stub, status, needle):
+    s = stub(status=status, body=b'{"error":{"message":"nope"}}',
+             content_type="application/json")
+    _point_api_at(ffmod, monkeypatch, s)
+    ok, msg = chef.test_connection()
+    assert not ok
+    assert needle in msg, msg
+
+
+def test_the_claude_test_button_needs_no_network_without_a_key(ffmod, chef):
+    chef.anthropic_key = ""
+    ok, msg = chef.test_connection()
+    assert not ok and "key" in msg.lower()
 
 
 # ─── config persistence ────────────────────────────────────────────────
