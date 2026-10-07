@@ -3760,7 +3760,18 @@ class FlavorForgeGUI:
         self.ai_chef = AIChef()
         self.root = tk.Tk()
         self.root.title(f"FlavorForge — Procedural Cooking Engine v{__version__}")
-        self.root.geometry("1400x900")
+
+        # Fixed sizes in this class are 96-DPI pixels. The DPI-awareness call
+        # at the top of the file stops Windows bitmap-scaling the window, so
+        # fonts (in points) grow with the display but bare pixel sizes did
+        # not: at 200% the window opened at a quarter of its intended area,
+        # with tab labels truncated, fixed-height bars clipping their text and
+        # half of each toolbar off the edge. Sizes now go through _px, and the
+        # window is capped at the screen it opens on.
+        self._scale = max(1.0, self.root.winfo_fpixels("1i") / 96.0)
+        width = min(self._px(1400), int(self.root.winfo_screenwidth() * 0.95))
+        height = min(self._px(900), int(self.root.winfo_screenheight() * 0.90))
+        self.root.geometry(f"{width}x{height}")
         self.root.configure(bg="#1a1a2e")
 
         self.colors = {
@@ -3778,6 +3789,10 @@ class FlavorForgeGUI:
 
         self.setup_styles()
         self.build_ui()
+
+    def _px(self, n: int) -> int:
+        """A design size in 96-DPI pixels, scaled to this display."""
+        return int(round(n * self._scale))
 
     def setup_styles(self):
         style = ttk.Style()
@@ -3799,7 +3814,7 @@ class FlavorForgeGUI:
 
     def build_ui(self):
         # Header
-        header = tk.Frame(self.root, bg=self.colors["bg"], height=50)
+        header = tk.Frame(self.root, bg=self.colors["bg"], height=self._px(50))
         header.pack(fill=tk.X, padx=10, pady=(10, 0))
         header.pack_propagate(False)
 
@@ -3858,7 +3873,7 @@ class FlavorForgeGUI:
     # ─── PAIRING EXPLORER TAB ───────────────────────────────────
 
     def build_pairing_tab(self):
-        left = tk.Frame(self.tab_pair, bg=self.colors["panel"], width=300)
+        left = tk.Frame(self.tab_pair, bg=self.colors["panel"], width=self._px(300))
         left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 5))
         left.pack_propagate(False)
 
@@ -3897,7 +3912,7 @@ class FlavorForgeGUI:
         right = tk.Frame(self.tab_pair, bg=self.colors["bg"])
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.pair_info = tk.Frame(right, bg=self.colors["panel"], height=100)
+        self.pair_info = tk.Frame(right, bg=self.colors["panel"], height=self._px(100))
         self.pair_info.pack(fill=tk.X, pady=(0, 5))
         self.pair_info.pack_propagate(False)
 
@@ -3910,7 +3925,7 @@ class FlavorForgeGUI:
         self.pair_compounds_label = tk.Label(self.pair_info, text="",
                                               font=("Consolas", 9), bg=self.colors["panel"],
                                               fg=self.colors["text_dim"], justify=tk.LEFT,
-                                              anchor="w", wraplength=900)
+                                              anchor="w", wraplength=self._px(900))
         self.pair_compounds_label.pack(fill=tk.X, padx=15)
 
         tk.Label(right, text="Top Flavor Pairings (by shared aroma compounds)",
@@ -4024,7 +4039,7 @@ class FlavorForgeGUI:
     # ─── FLAVOR GRAPH TAB ───────────────────────────────────────
 
     def build_graph_tab(self):
-        controls = tk.Frame(self.tab_graph, bg=self.colors["panel"], height=45)
+        controls = tk.Frame(self.tab_graph, bg=self.colors["panel"], height=self._px(45))
         controls.pack(fill=tk.X, pady=(0, 5))
         controls.pack_propagate(False)
 
@@ -4062,6 +4077,10 @@ class FlavorForgeGUI:
         self.graph_canvas.bind("<Configure>", lambda e: self.draw_graph())
         self.graph_canvas.bind("<Button-1>", self._on_graph_click)
         self.graph_tooltip = None
+
+    def _node_radius(self, ing) -> float:
+        """Bigger for ingredients with more compounds, scaled to the display."""
+        return (5 + len(ing.compounds) * 1.2) * self._scale
 
     def invalidate_graph(self):
         self.graph_layout_dirty = True
@@ -4121,7 +4140,8 @@ class FlavorForgeGUI:
                 x2, y2 = self.graph_nodes[n2]
                 alpha = min(int(score * 255), 255)
                 color = f"#{alpha:02x}{alpha:02x}{alpha:02x}"
-                canvas.create_line(x1, y1, x2, y2, fill=color, width=1 + score * 3)
+                canvas.create_line(x1, y1, x2, y2, fill=color,
+                                   width=(1 + score * 3) * self._scale)
 
         for name in ing_names:
             if name not in self.graph_nodes:
@@ -4129,26 +4149,26 @@ class FlavorForgeGUI:
             x, y = self.graph_nodes[name]
             ing = INGREDIENTS[name]
             color = CATEGORIES.get(ing.category, "#555")
-            r = 5 + len(ing.compounds) * 1.2
+            r = self._node_radius(ing)
             canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline="#fff", width=1)
-            canvas.create_text(x, y + r + 8, text=ing.name, fill="#aaa", font=("Consolas", 7))
+            canvas.create_text(x, y + r + self._px(8), text=ing.name, fill="#aaa", font=("Consolas", 7))
 
-        lx, ly = 15, 15
+        lx, ly = self._px(15), self._px(15)
         for cat, color in sorted(CATEGORIES.items()):
             count = sum(1 for n in ing_names if INGREDIENTS[n].category == cat)
             if count == 0:
                 continue
-            canvas.create_oval(lx, ly, lx + 10, ly + 10, fill=color, outline="")
-            canvas.create_text(lx + 15, ly + 5, text=f"{cat} ({count})",
+            canvas.create_oval(lx, ly, lx + self._px(10), ly + self._px(10), fill=color, outline="")
+            canvas.create_text(lx + self._px(15), ly + self._px(5), text=f"{cat} ({count})",
                               fill="#aaa", font=("Consolas", 8), anchor="w")
-            ly += 16
+            ly += self._px(16)
 
     def _on_graph_click(self, event):
         closest = None
         closest_dist = float("inf")
         for name, (x, y) in self.graph_nodes.items():
             dist = math.sqrt((event.x - x) ** 2 + (event.y - y) ** 2)
-            if dist < 20 and dist < closest_dist:
+            if dist < self._px(20) and dist < closest_dist:
                 closest = name
                 closest_dist = dist
 
@@ -4157,21 +4177,22 @@ class FlavorForgeGUI:
             self.draw_graph()
             x, y = self.graph_nodes[closest]
             ing = INGREDIENTS[closest]
-            r = 5 + len(ing.compounds) * 1.2
-            self.graph_canvas.create_oval(x - r - 3, y - r - 3, x + r + 3, y + r + 3,
+            r = self._node_radius(ing)
+            pad = self._px(3)
+            self.graph_canvas.create_oval(x - r - pad, y - r - pad, x + r + pad, y + r + pad,
                                           outline=self.colors["highlight"], width=3)
             compound_names = [COMPOUNDS[c].name for c in ing.compounds if c in COMPOUNDS]
             tip = f"{ing.name} [{ing.category}]\n{', '.join(compound_names)}"
             if self.graph_tooltip:
                 self.graph_canvas.delete(self.graph_tooltip)
             self.graph_tooltip = self.graph_canvas.create_text(
-                x, y - r - 12, text=tip, fill=self.colors["text_bright"],
+                x, y - r - self._px(12), text=tip, fill=self.colors["text_bright"],
                 font=("Consolas", 9), anchor="s")
 
     # ─── RECIPE GENERATOR TAB ──────────────────────────────────
 
     def build_recipe_tab(self):
-        top = tk.Frame(self.tab_recipe, bg=self.colors["panel"], height=60)
+        top = tk.Frame(self.tab_recipe, bg=self.colors["panel"], height=self._px(60))
         top.pack(fill=tk.X, pady=(0, 5))
         top.pack_propagate(False)
 
@@ -4221,7 +4242,7 @@ class FlavorForgeGUI:
                   cursor="hand2").pack(side=tk.LEFT, padx=5, pady=15)
 
         # Saved recipes bar
-        saved_bar = tk.Frame(self.tab_recipe, bg=self.colors["panel"], height=38)
+        saved_bar = tk.Frame(self.tab_recipe, bg=self.colors["panel"], height=self._px(38))
         saved_bar.pack(fill=tk.X, pady=(0, 3))
         saved_bar.pack_propagate(False)
 
@@ -4578,7 +4599,7 @@ class FlavorForgeGUI:
 
     def build_dish_tab(self):
         # ── Top: dish type + template picker ──
-        top = tk.Frame(self.tab_build, bg=self.colors["panel"], height=55)
+        top = tk.Frame(self.tab_build, bg=self.colors["panel"], height=self._px(55))
         top.pack(fill=tk.X, pady=(0, 3))
         top.pack_propagate(False)
 
@@ -4605,14 +4626,14 @@ class FlavorForgeGUI:
         mid.pack(fill=tk.BOTH, expand=True)
 
         # Left: slot selection panel
-        self.build_slots_frame = tk.Frame(mid, bg=self.colors["panel"], width=620)
+        self.build_slots_frame = tk.Frame(mid, bg=self.colors["panel"], width=self._px(620))
         self.build_slots_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 5))
         self.build_slots_frame.pack_propagate(False)
 
         self.build_slots_header = tk.Label(self.build_slots_frame,
             text="← Pick a dish type and template to start",
             font=("Consolas", 11), bg=self.colors["panel"],
-            fg=self.colors["text_dim"], wraplength=380, justify=tk.LEFT)
+            fg=self.colors["text_dim"], wraplength=self._px(380), justify=tk.LEFT)
         self.build_slots_header.pack(pady=15, padx=15)
 
         self.build_slot_widgets = []  # List of (slot_name, combobox) tuples
@@ -4759,7 +4780,7 @@ class FlavorForgeGUI:
                                       bg=self.colors["panel"],
                                       fg=self.colors["success"],
                                       anchor="w")
-            suggest_label.pack(fill=tk.X, padx=(105, 5))
+            suggest_label.pack(fill=tk.X, padx=(self._px(105), 5))
 
             frame._suggest_label = suggest_label
             frame._slot_name = slot
@@ -5079,7 +5100,7 @@ class FlavorForgeGUI:
     # ─── BRIDGE FINDER TAB ──────────────────────────────────────
 
     def build_bridge_tab(self):
-        top = tk.Frame(self.tab_bridge, bg=self.colors["panel"], height=60)
+        top = tk.Frame(self.tab_bridge, bg=self.colors["panel"], height=self._px(60))
         top.pack(fill=tk.X, pady=(0, 5))
         top.pack_propagate(False)
 
@@ -5194,7 +5215,7 @@ class FlavorForgeGUI:
 
     def build_pantry_tab(self):
         # ── Left panel: ingredient selector ──
-        left = tk.Frame(self.tab_pantry, bg=self.colors["panel"], width=320)
+        left = tk.Frame(self.tab_pantry, bg=self.colors["panel"], width=self._px(320))
         left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 5))
         left.pack_propagate(False)
 
@@ -5290,7 +5311,7 @@ class FlavorForgeGUI:
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Controls
-        controls = tk.Frame(right, bg=self.colors["panel"], height=55)
+        controls = tk.Frame(right, bg=self.colors["panel"], height=self._px(55))
         controls.pack(fill=tk.X, pady=(0, 5))
         controls.pack_propagate(False)
 
@@ -5567,7 +5588,7 @@ class FlavorForgeGUI:
 
     def build_ai_tab(self):
         # Settings bar
-        settings = tk.Frame(self.tab_ai, bg=self.colors["panel"], height=50)
+        settings = tk.Frame(self.tab_ai, bg=self.colors["panel"], height=self._px(50))
         settings.pack(fill=tk.X, pady=(0, 5))
         settings.pack_propagate(False)
 
@@ -5621,7 +5642,7 @@ class FlavorForgeGUI:
         self.ai_status.pack(side=tk.RIGHT, padx=10)
 
         # API key row (for Anthropic)
-        self.api_key_frame = tk.Frame(self.tab_ai, bg=self.colors["panel"], height=35)
+        self.api_key_frame = tk.Frame(self.tab_ai, bg=self.colors["panel"], height=self._px(35))
         self.api_key_frame.pack(fill=tk.X, pady=(0, 5))
         self.api_key_frame.pack_propagate(False)
 
@@ -5646,7 +5667,7 @@ class FlavorForgeGUI:
         self._on_provider_change()
 
         # Action buttons
-        action_bar = tk.Frame(self.tab_ai, bg=self.colors["panel"], height=50)
+        action_bar = tk.Frame(self.tab_ai, bg=self.colors["panel"], height=self._px(50))
         action_bar.pack(fill=tk.X, pady=(0, 5))
         action_bar.pack_propagate(False)
 

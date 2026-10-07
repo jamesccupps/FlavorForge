@@ -31,6 +31,22 @@ def test_the_window_title_carries_the_real_version(app, ffmod):
     assert app.root.title().endswith("v" + ffmod.__version__)
 
 
+def test_fixed_sizes_follow_the_display_dpi(app):
+    """At 200% the window opened at 1400x900 physical pixels with fonts twice
+    their 96-DPI size: tabs truncated and toolbars running off the edge."""
+    expected = max(1.0, app.root.winfo_fpixels("1i") / 96.0)
+    assert app._scale == pytest.approx(expected)
+    assert app._px(100) == round(100 * expected)
+
+
+def test_the_window_never_opens_larger_than_the_screen(app):
+    app.root.update_idletasks()
+    geo = app.root.geometry()                       # "WxH+X+Y"
+    w, h = (int(v) for v in geo.split("+")[0].split("x"))
+    assert w <= app.root.winfo_screenwidth()
+    assert h <= app.root.winfo_screenheight()
+
+
 # ─── AI Chef settings ──────────────────────────────────────────────────
 
 def test_the_migration_note_goes_away_once_another_model_is_picked(app, ffmod):
