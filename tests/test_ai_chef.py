@@ -323,6 +323,68 @@ def test_an_unreachable_host_is_reported_not_raised(ffmod, chef, monkeypatch):
     assert errors
 
 
+# ─── Ollama ────────────────────────────────────────────────────────────
+
+def _ndjson(*records):
+    return ("\n".join(json.dumps(r) for r in records) + "\n").encode("utf-8")
+
+
+def _run_ollama(chef, stub_server):
+    chef.provider = "ollama"
+    chef.ollama_url = stub_server.url.rsplit("/v1/", 1)[0]
+    chunks, errors, done = [], [], []
+    chef._ollama_generate("p", lambda t: (done if t is None else chunks).append(t),
+                          errors.append)
+    return "".join(chunks), errors, done
+
+
+def test_ollama_text_streams_and_finishes_once(chef, stub):
+    s = stub(body=_ndjson({"response": "Char "}, {"response": "Siu"},
+                          {"response": "", "done": True, "done_reason": "stop"}),
+             content_type="application/x-ndjson")
+    text, errors, done = _run_ollama(chef, s)
+    assert text == "Char Siu" and not errors and done == [None]
+    assert s.requests[0]["path"] == "/api/generate"
+
+
+def test_an_ollama_stream_cut_short_is_an_error_not_a_hang(chef, stub):
+    """No done record used to mean no signal of any kind, so the tab sat on
+    "Generating..." for good under half a recipe."""
+    s = stub(body=_ndjson({"response": "1. Sear the "}),
+             content_type="application/x-ndjson")
+    text, errors, done = _run_ollama(chef, s)
+    assert text == "1. Sear the "
+    assert errors and "incomplete" in errors[0]
+    assert done == []
+
+
+def test_an_ollama_error_line_is_surfaced(chef, stub):
+    s = stub(body=_ndjson({"error": "model requires more system memory"}),
+             content_type="application/x-ndjson")
+    _, errors, done = _run_ollama(chef, s)
+    assert errors and "more system memory" in errors[0]
+    assert done == []
+
+
+def test_an_ollama_http_error_carries_its_explanation(chef, stub):
+    """str(HTTPError) is "HTTP Error 404: Not Found"; the useful part is the
+    body, which says what to do about it."""
+    s = stub(status=404,
+             body=b'{"error":"model \\"qwen9\\" not found, try pulling it first"}',
+             content_type="application/json")
+    _, errors, done = _run_ollama(chef, s)
+    assert errors and "try pulling it first" in errors[0]
+    assert done == []
+
+
+def test_an_ollama_reply_cut_at_its_length_limit_says_so(chef, stub):
+    s = stub(body=_ndjson({"response": "2. Add the "},
+                          {"response": "", "done": True, "done_reason": "length"}),
+             content_type="application/x-ndjson")
+    text, errors, done = _run_ollama(chef, s)
+    assert "cut off" in text and not errors and done == [None]
+
+
 # ─── the Test button ───────────────────────────────────────────────────
 
 def _point_api_at(ffmod, monkeypatch, stub_server):

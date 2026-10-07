@@ -3541,19 +3541,55 @@ class AIChef:
 
             req = urllib.request.Request(url, data=payload,
                                          headers={"Content-Type": "application/json"})
+            finished = None
             with urllib.request.urlopen(req, timeout=120) as resp:
                 for line in resp:
                     try:
                         data = json.loads(line.decode("utf-8"))
-                        if "response" in data:
-                            if callback:
-                                callback(data["response"])
-                        if data.get("done", False):
-                            if callback:
-                                callback(None)  # Signal done
-                            break
-                    except json.JSONDecodeError:
+                    except (json.JSONDecodeError, UnicodeDecodeError):
                         continue
+                    if not isinstance(data, dict):
+                        continue
+                    # Ollama reports some failures as a line in the stream
+                    # rather than an HTTP status. These were skipped, and the
+                    # stream then ended with nothing to say why.
+                    if "error" in data:
+                        if error_callback:
+                            error_callback(f"Ollama: {data['error']}")
+                        return
+                    if "response" in data and callback:
+                        callback(data["response"])
+                    if data.get("done"):
+                        finished = data
+                        break
+
+            # A stream that closes without its done record -- Ollama
+            # restarted, the model was unloaded, a proxy cut it -- used to
+            # signal nothing at all, leaving the tab on "Generating..." for
+            # good with half a recipe under it.
+            if finished is None:
+                if error_callback:
+                    error_callback("Ollama closed the connection before finishing; "
+                                   "the recipe above is incomplete.")
+                return
+            # The Claude path says when a reply hit its length limit; this one
+            # said nothing and the recipe simply stopped mid-step.
+            if finished.get("done_reason") == "length" and callback:
+                callback("\n\n[!] Ollama stopped at its length limit, so this "
+                         "recipe was cut off. Raise num_ctx or num_predict for "
+                         f"{self.ollama_model}.\n")
+            if callback:
+                callback(None)  # Signal done
+        except urllib.error.HTTPError as e:
+            # The body is where Ollama explains itself -- "model 'x' not found,
+            # try pulling it first" -- and str(e) is only "HTTP Error 404".
+            detail = e.read().decode("utf-8", errors="replace")
+            try:
+                detail = json.loads(detail).get("error", detail)
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            if error_callback:
+                error_callback(f"Ollama HTTP {e.code}: {str(detail)[:300]}")
         except Exception as e:
             if error_callback:
                 error_callback(str(e))
