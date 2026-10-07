@@ -11,6 +11,7 @@ right" — but nothing was checking it, and the audit that prompted these tests
 found five real problems in this file's scope alone.
 """
 import collections
+import itertools
 import re
 from pathlib import Path
 
@@ -286,6 +287,49 @@ def test_the_readme_category_table_matches_the_data(ffmod):
         assert int(rows[label]) == actual[cat], \
             f"README says {rows[label]} {label}, data has {actual[cat]}"
     assert set(_README_CATEGORY_LABELS.values()) == set(ffmod.CATEGORIES)
+
+
+def _spelled(n):
+    units = "zero one two three four five six seven eight nine".split()
+    tens = {2: "twenty", 3: "thirty", 4: "forty"}
+    return tens[n // 10] + ("-" + units[n % 10] if n % 10 else "")
+
+
+def test_the_readme_prose_figures_match_the_data(engine, ffmod):
+    """Numbers written into sentences rather than tables. By 3.2 four were
+    stale -- hexanal "63%" (61.7), "29" templates (28), "83.6%" (84.8),
+    "24 slot types" (23) -- because each was measured once and never again."""
+    readme = (SRC.parent / "README.md").read_text(encoding="utf-8")
+    ings = ffmod.INGREDIENTS
+    n = len(ings)
+
+    def shared(a, b):
+        return len(ings[a].compounds & ings[b].compounds)
+
+    assert f"strawberry and tomato share {shared('strawberry', 'tomato')} compounds" in readme
+    assert f"connected through {shared('coffee', 'chocolate')} different molecules" in readme
+
+    tagged = sum(1 for t in ffmod.DISH_TEMPLATES if ffmod.method_diet_tags(t))
+    assert f"{_spelled(tagged).capitalize()} of the {len(ffmod.DISH_TEMPLATES)} templates" in readme
+
+    hexanal = engine._compound_freq["hexanal"]
+    assert f"is in {round(100 * hexanal / n)}% of the database" in readme
+    share = engine._weight["hexanal"] / engine._max_weight
+    assert f"about **{round(100 * share)}%**" in readme
+
+    real, top_ubiquitous = [], 0.0
+    for a, b in itertools.combinations(ings, 2):
+        score, common = engine.weighted_similarity(a, b)
+        if not common:
+            continue
+        if common <= engine._boring_compounds:
+            top_ubiquitous = max(top_ubiquitous, score)
+        else:
+            real.append(score)
+    below = round(100 * sum(s < top_ubiquitous for s in real) / len(real))
+    assert f"{below}% of pairs with a real shared compound" in readme
+
+    assert f"**{len(ffmod.SLOT_CAT_MAP)} slot types**" in readme
 
 
 # ─── the module's own claims about itself ──────────────────────────────

@@ -62,7 +62,7 @@ another. Each fix landed as its own commit with a test that fails on 3.2.
 - README facts corrected — 11 of 17 category-table rows were wrong — and
   the table and link count are now asserted against the data. The
   screenshot the README referenced did not exist; it does now.
-- 237 → 292 tests.
+- 237 → 293 tests.
 
 ### Known issue, not changed
 

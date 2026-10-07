@@ -58,7 +58,9 @@ Out of parmesan? The Pairing tab now ends with what to use instead. A substitute
 ### 🥦 Diet Filter
 Pick omnivore, pescatarian, vegetarian or vegan on the Recipe tab, or pass `--diet` on the CLI. Two independent filters run: the ingredient pool is narrowed, and templates whose *method* assumes something the diet forbids are dropped entirely.
 
-That second one matters. Twenty-nine of the 102 templates name an animal product in prose no slot holds — "finish with cream", "top with a fried egg" — so without it a vegan recipe could instruct you to add parmesan. A chowder without cream is not a chowder, so the honest answer is that it is not vegan and it is not offered.
+A diet is a constraint, not a preference. Ask for a vegan recipe built around bacon, or a vegan Sauce & Dip (every dip template assumes dairy or egg), and you get told so — not a recipe that quietly ignores the diet.
+
+That second one matters. Twenty-eight of the 102 templates name an animal product in prose no slot holds — "finish with cream", "top with a fried egg" — so without it a vegan recipe could instruct you to add parmesan. A chowder without cream is not a chowder, so the honest answer is that it is not vegan and it is not offered.
 
 Classification is per ingredient, because the category cannot carry it: chicken stock is a "sauce", fish sauce and Worcestershire are "fermented", coconut milk is filed under "dairy" because it behaves like cream in a pan, egg noodles contain egg, and mayonnaise is egg rather than milk.
 
@@ -142,6 +144,9 @@ python flavorforge.py            # the GUI
 python flavorforge.py --help     # or the command line
 ```
 
+`pip install .` from the clone adds a `flavorforge` command, which is what the
+CLI examples above use; without it, `python flavorforge.py` does the same.
+
 tkinter is only needed for the GUI. The database, the engine and the CLI run
 without it, so a headless server can still answer `--pair` and `--recipe`.
 
@@ -175,13 +180,13 @@ python3 flavorforge.py
 FlavorForge works standalone — the AI Chef tab is optional.
 
 ### Ollama (Local, Free)
-1. Install [Ollama](https://ollama.ai)
+1. Install [Ollama](https://ollama.com)
 2. Pull a model: `ollama pull qwen2.5:14b` (or llama3, mistral, etc.)
 3. In FlavorForge → AI Chef tab → set URL to `http://localhost:11434` and model name
 4. Hit "Test" → "Save"
 
 ### Claude API (Anthropic)
-1. Get a key at [console.anthropic.com](https://console.anthropic.com)
+1. Get a key from the [Claude Console](https://platform.claude.com)
 2. AI Chef tab → Provider: `anthropic` → paste the key → **Save**
 3. Pick a model from the dropdown:
 
@@ -213,17 +218,17 @@ Each ingredient is mapped to its key volatile aroma compounds. When two ingredie
 
 FlavorForge scores this with a **rarity-weighted Jaccard similarity**: the ordinary Jaccard index (shared ÷ combined) with each compound weighted by inverse document frequency, `log(N / ingredients_containing_it)`, instead of counted as 1. Identical profiles score 1.0, disjoint ones 0.0.
 
-Rarity is doing real work here. Hexanal — grassy, green — is in 63% of the database, so it carries about **8%** of the weight of a compound found in a single ingredient. Sharing hexanal tells you almost nothing, and the score now says so.
+Rarity is doing real work here. Hexanal — grassy, green — is in 62% of the database, so it carries about **8%** of the weight of a compound found in a single ingredient. Sharing hexanal tells you almost nothing, and the score now says so.
 
 > **This changed in 3.1, and it changed every number the app shows.** Through 3.0 the weight was `0.5 + 0.5 × rarity`, whose constant floor swamped the rarity term: hexanal scored 0.68 against a ceiling of 1.0, or 70% of a unique compound. The measurable effect was that of the 31,387 ingredient pairs the app reported as connected, 16,501 — **52.6%** — shared nothing but hexanal, linalool or nonanal. Over half of every "pairing" was three compounds that are in almost everything. The 3.0 formula was also not Jaccard, despite this section having said so since 1.0: it divided by the average profile size rather than by the union.
 
-Ranked lists go one step further and drop matches resting *entirely* on compounds present in more than 30% of the database. Scoring already pushes those down; excluding them keeps a short honest list in place of 25 rows of coincidence. The two populations genuinely cannot be separated by a score threshold — 83.6% of pairs with a real shared compound score below the *highest* ubiquitous-only pair — so the filter works on the shared set, not on a cutoff.
+Ranked lists go one step further and drop matches resting *entirely* on compounds present in more than 30% of the database. Scoring already pushes those down; excluding them keeps a short honest list in place of 25 rows of coincidence. The two populations genuinely cannot be separated by a score threshold — 85% of pairs with a real shared compound score below the *highest* ubiquitous-only pair — so the filter works on the shared set, not on a cutoff.
 
 ### Texture Contrast
 Every ingredient has texture tags (crispy, creamy, chewy, tender, etc.). The balance system checks for missing texture dimensions and suggests fixes: "Missing crunch — try adding nuts, seeds, or crispy onions."
 
 ### Taste Balance
-Ingredients carry taste profiles across 7 dimensions: salty, sweet, sour, bitter, umami, fatty, spicy. The system identifies gaps: "Heavy on salt but missing acid — add citrus, vinegar, or pickled element."
+Ingredients carry taste profiles across seven core dimensions — salty, sweet, sour, bitter, umami, fatty, spicy — plus starchy, earthy and smoky where they apply. The system identifies gaps: "Heavy on salt but missing acid — add citrus, vinegar, or pickled element."
 
 ### Smart Slot Types
 Templates use specialized slot types that filter to the right ingredients:
@@ -242,7 +247,7 @@ FlavorForge saves user data to your home directory:
 
 | File | Purpose |
 |---|---|
-| `~/.flavorforge_config.json` | AI Chef settings (provider, URL, model) |
+| `~/.flavorforge_config.json` | AI Chef settings (provider, URL, model, API key) |
 | `~/.flavorforge_pantry.json` | Your pantry ingredient list |
 | `~/.flavorforge_saved_recipes.json` | Saved recipe concepts |
 | `~/FlavorForge_Recipes/` | AI-generated full recipe text files |
@@ -255,8 +260,8 @@ FlavorForge saves user data to your home directory:
 - **82 aroma compounds** with descriptions
 - **1,790 flavor links**
 - **102 recipe templates** across 16 dish types
-- **292 tests**, run on Linux and Windows across Python 3.10–3.14
-- **24 slot types** including grain, sauce, and broth subtypes
+- **293 tests**, run on Linux and Windows across Python 3.10–3.14
+- **23 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter
 
@@ -275,4 +280,4 @@ Flavor compound data is based on research from:
 - **Ahn et al. (2011)** — "Flavor network and the principles of food pairing" (Scientific Reports)
 - **Foodpairing.com** methodology
 
-Built by [James Cupps]
+Built by [James Cupps](https://github.com/jamesccupps)

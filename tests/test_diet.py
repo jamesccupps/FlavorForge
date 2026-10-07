@@ -147,7 +147,7 @@ def test_the_diets_are_nested_correctly(ffmod):
 # ─── the template-prose filter ─────────────────────────────────────────
 
 def test_template_methods_are_scanned_for_what_the_slots_cannot_see(ffmod):
-    """29 of 102 templates name an animal product in their instructions —
+    """28 of 102 templates name an animal product in their instructions —
     "finish with cream", "top with a fried egg" — which no slot holds. Without
     this, a vegan recipe could be produced whose own method says add parmesan.
     """
