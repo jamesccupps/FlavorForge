@@ -125,6 +125,18 @@ def test_the_load_paths_catch_oserror_not_just_filenotfound():
         assert re.search(r"except \([^)]*OSError", body), f"{method} does not catch OSError"
 
 
+def test_a_pantry_saved_with_a_merged_key_keeps_the_item(ffmod, tmp_path):
+    """green_bean, sesame_seed and wine_red were merged into their duplicates
+    in 3.3. A pantry written by 3.2 can hold the old keys; they must come back
+    as the surviving ingredient rather than vanish from the cupboard."""
+    p = tmp_path / "pantry.json"
+    p.write_text(json.dumps({"pantry": ["green_bean", "wine_red", "salt"]}),
+                 encoding="utf-8")
+    fake = type("G", (), {"_pantry_path": lambda self: str(p)})()
+    ffmod.FlavorForgeGUI._load_pantry(fake)
+    assert fake.pantry == {"green_beans", "red_wine", "salt"}
+
+
 def test_a_bom_file_is_readable(ffmod, tmp_path):
     """The mechanism itself, rather than only the source text."""
     p = tmp_path / "bom.json"

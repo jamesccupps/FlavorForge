@@ -75,6 +75,37 @@ def test_every_ingredient_has_flavor_notes(ffmod):
         assert ing.flavor_notes.strip(), f"{name} has no flavor notes"
 
 
+def test_no_two_ingredients_share_a_display_name(ffmod):
+    """Through 3.2 three ingredients were in the database twice under
+    different keys — green_bean / green_beans, sesame_seed / sesame_seeds,
+    wine_red / red_wine. The GUI maps a clicked display name back to a key by
+    searching for it, so one of each pair was unreachable from the Pairing
+    tab (clicking "sesame seeds [nut]" opened the spice entry), the pantry
+    listed both, and every compound they carried was counted twice in the
+    rarity weights. The key differs; the name the cook sees must not."""
+    by_name = collections.defaultdict(list)
+    for key, ing in ffmod.INGREDIENTS.items():
+        by_name[ing.name.lower()].append(key)
+    dupes = {n: ks for n, ks in by_name.items() if len(ks) > 1}
+    assert not dupes, f"ingredients sharing a display name: {dupes}"
+
+
+def test_retired_keys_point_at_live_ingredients(ffmod):
+    """A merged-away key must be gone, and what it maps to must exist —
+    otherwise a migrated pantry entry lands on nothing."""
+    for old, new in ffmod.RENAMED_INGREDIENTS.items():
+        assert old not in ffmod.INGREDIENTS, f"{old} was merged but still exists"
+        assert new in ffmod.INGREDIENTS, f"{old} maps to unknown {new}"
+
+
+def test_merged_entries_kept_both_halves_of_the_chemistry(ffmod):
+    """The merge is a union, not a pick: each duplicate carried compounds the
+    other lacked, and dropping either would quietly change what pairs."""
+    assert {"rotundone", "whiskey_lactone", "eugenol", "ionone"} <= \
+        ffmod.INGREDIENTS["red_wine"].compounds
+    assert {"guaiacol", "linalool"} <= ffmod.INGREDIENTS["sesame_seeds"].compounds
+
+
 def test_ingredients_without_compounds_are_only_the_pure_tastants(ffmod):
     """Salt, MSG, sugar and cornstarch genuinely have no aroma compounds —
     they are taste and texture, not smell. That is correct, but it means they

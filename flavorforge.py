@@ -3,7 +3,7 @@
 FlavorForge - Procedural Cooking Engine v3.2
 Generates novel recipes based on molecular flavor compound pairing theory.
 Uses real aroma compound data to find scientifically-grounded ingredient combinations.
-329 ingredients, 82 compounds, 102 templates across 16 dish types.
+326 ingredients, 82 compounds, 102 templates across 16 dish types.
 AI Chef integration (Ollama / Claude API) for full recipe generation.
 
 Author: James Cupps
@@ -561,9 +561,6 @@ INGREDIENTS = {
     "everything_bagel": Ingredient("everything bagel seasoning", "spice",
         {"diallyl_disulfide", "dimethyl_sulfide", "methylpyrazine", "pinene"},
         ["sprinkle", "crust", "finish"], "onion, garlic, sesame, poppy, savory"),
-    "sesame_seeds": Ingredient("sesame seeds", "spice",
-        {"methylpyrazine", "acetylpyrazine", "hexanal", "furfural"},
-        ["toast", "sprinkle", "grind", "crust"], "nutty, toasty, subtle"),
     "poppy_seeds": Ingredient("poppy seeds", "spice",
         {"hexanal", "nonanal", "linalool", "furfural", "myrcene"},
         ["sprinkle", "bake", "grind"], "nutty, mild, crunchy"),
@@ -867,9 +864,6 @@ INGREDIENTS = {
     "chocolate": Ingredient("chocolate", "fermented",
         {"methylpyrazine", "vanillin", "acetylpyrazine", "linalool", "furaneol", "maltol", "phenethyl_alcohol", "furfural"},
         ["melt", "temper", "grate", "ganache"], "rich, bitter, complex"),
-    "wine_red": Ingredient("red wine", "fermented",
-        {"ethyl_acetate", "linalool", "eugenol", "vanillin", "guaiacol", "4vg", "damascenone", "ionone", "tartaric_acid"},
-        ["reduce", "deglaze", "braise", "marinade"], "tannic, fruity, complex"),
     "beer": Ingredient("beer", "fermented",
         {"linalool", "myrcene", "ethyl_acetate", "diacetyl", "4vg", "isoamyl_acetate"},
         ["braise", "batter", "reduce", "steam"], "bitter, malty, hoppy"),
@@ -909,9 +903,12 @@ INGREDIENTS = {
         ["drizzle", "sauce", "candy", "flavor"], "rich, burnt sugar, buttery, complex"),
 
     # ═══════════════ SEEDS ═══════════════
-    "sesame_seed": Ingredient("sesame seeds", "nut",
+    # Filed as a nut rather than a spice: the nut defaults (crunchy; fatty,
+    # a little bitter) describe a sesame seed, the spice ones (powdery; hot)
+    # do not. Through 3.2 it was in the database twice, once as each.
+    "sesame_seeds": Ingredient("sesame seeds", "nut",
         {"methylpyrazine", "acetylpyrazine", "hexanal", "furfural", "guaiacol", "linalool"},
-        ["toast", "sprinkle", "grind", "garnish"], "nutty, toasty, delicate"),
+        ["toast", "sprinkle", "grind", "crust", "garnish"], "nutty, toasty, delicate"),
     "pumpkin_seed": Ingredient("pumpkin seeds", "nut",
         {"hexanal", "nonanal", "methylpyrazine", "linalool", "pinene"},
         ["toast", "press", "garnish", "blend"], "nutty, earthy, green"),
@@ -961,9 +958,6 @@ INGREDIENTS = {
     "poblano": Ingredient("poblano", "vegetable",
         {"methoxypyrazine", "hexanal", "capsaicin", "limonene", "nonanal"},
         ["roast", "stuff", "char", "blend", "dry"], "mild heat, earthy, rich"),
-    "green_bean": Ingredient("green beans", "vegetable",
-        {"hexanal", "methoxypyrazine", "linalool", "nonanal", "dimethyl_sulfide"},
-        ["blanch", "sauté", "roast", "steam", "pickle"], "green, crisp, fresh"),
     "mushroom_button": Ingredient("button mushrooms", "mushroom",
         {"1_octen_3_ol", "hexanal", "nonanal", "linalool"},
         ["sauté", "raw", "stuff", "grill", "cream"], "mild, earthy, versatile"),
@@ -1198,9 +1192,14 @@ INGREDIENTS = {
          "phenylacetaldehyde"},
         ["steep", "infuse", "smoke", "braise"],
         "tannic, malty, floral — the oxidised-leaf aroma"),
+    # Merged in 3.3 with a v3.0 "wine_red" entry that had the same display
+    # name and a different half of the chemistry: grape and fermentation
+    # (linalool, ionone, ethyl acetate) and barrel (eugenol, vanillin,
+    # guaiacol, 4-vinylguaiacol) there, peppery reds and oak lactone here.
     "red_wine": Ingredient("red wine", "fermented",
         {"damascenone", "whiskey_lactone", "ethyl_hexanoate", "tartaric_acid",
-         "phenethyl_alcohol", "rotundone"},
+         "phenethyl_alcohol", "rotundone", "ethyl_acetate", "linalool",
+         "eugenol", "vanillin", "guaiacol", "4vg", "ionone"},
         ["reduce", "braise", "deglaze", "marinate"],
         "tannic, dark-fruited, oaky — rotundone gives the peppery reds their pepper"),
 
@@ -1333,6 +1332,18 @@ INGREDIENTS = {
         {"furaneol", "maltol", "ethyl_maltol", "vanillin"},
         ["drizzle", "stir", "dissolve", "glaze"],
         "clean and neutral, sweeter than sugar so less of it goes in"),
+}
+
+# Keys retired by merging duplicate entries, mapped to the survivor. Three
+# ingredients were in the database twice under different keys with the same
+# display name, so the GUI's name-to-key lookup could only ever reach one of
+# each, and their compounds were double-counted in every rarity weight. Kept
+# so a pantry saved by an older version keeps those items instead of quietly
+# dropping them.
+RENAMED_INGREDIENTS = {
+    "green_bean": "green_beans",
+    "sesame_seed": "sesame_seeds",
+    "wine_red": "red_wine",
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -5061,7 +5072,8 @@ class FlavorForgeGUI:
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return
         if isinstance(data, dict):
-            self.pantry = {n for n in data.get("pantry", []) if isinstance(n, str)}
+            self.pantry = {RENAMED_INGREDIENTS.get(n, n)
+                           for n in data.get("pantry", []) if isinstance(n, str)}
 
     def _save_pantry(self) -> bool:
         return _write_json_atomic(self._pantry_path(), {"pantry": sorted(self.pantry)})
@@ -5745,6 +5757,7 @@ def _resolve(name: str) -> Optional[str]:
     """Accept a key, a display name, or an unambiguous prefix."""
     raw = name.strip().lower()
     key = raw.replace(" ", "_").replace("-", "_")
+    key = RENAMED_INGREDIENTS.get(key, key)
     if key in INGREDIENTS:
         return key
     for k, ing in INGREDIENTS.items():

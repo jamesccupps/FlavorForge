@@ -2,7 +2,7 @@
 
 **A procedural cooking engine that generates novel recipes using molecular flavor science, texture pairing, and taste balance analysis — with optional AI Chef integration.**
 
-FlavorForge doesn't just mash random ingredients together. It uses a database of 329 real ingredients mapped to 82 aroma compounds (linalool, furaneol, methylpyrazine, etc.) to find scientifically-grounded flavor pairings. Then it layers on texture contrast analysis and taste balance checking to make sure the dish actually works.
+FlavorForge doesn't just mash random ingredients together. It uses a database of 326 real ingredients mapped to 82 aroma compounds (linalool, furaneol, methylpyrazine, etc.) to find scientifically-grounded flavor pairings. Then it layers on texture contrast analysis and taste balance checking to make sure the dish actually works.
 
 Send the result to your local Ollama instance or Claude API, and the AI gets a prompt loaded with molecular pairing data, texture gaps, taste balance issues, and cuisine direction — so it generates a recipe that's both creative and cookable.
 
@@ -100,7 +100,7 @@ The database is a mapping and could only ever be read one way: pick an ingredien
 
 ## The Database
 
-329 ingredients across 17 categories, 82 aroma compounds, 1,801 ingredient-compound links.
+326 ingredients across 17 categories, 82 aroma compounds, 1,790 ingredient-compound links.
 
 | Category | Count | Examples |
 |---|---|---|
@@ -246,11 +246,11 @@ FlavorForge saves user data to your home directory:
 ## Project Stats
 
 - **4,874 lines** of Python
-- **329 ingredients** across 17 categories
+- **326 ingredients** across 17 categories
 - **82 aroma compounds** with descriptions
 - **1,632 flavor links**
 - **102 recipe templates** across 16 dish types
-- **237 tests**, run on Linux and Windows across Python 3.10–3.13
+- **242 tests**, run on Linux and Windows across Python 3.10–3.13
 - **24 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter

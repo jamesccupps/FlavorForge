@@ -127,6 +127,13 @@ def test_pair_accepts_a_display_name_and_a_prefix(cli):
         assert "bell pepper" in out
 
 
+def test_a_key_retired_by_a_merge_still_resolves(cli):
+    """Scripts written against 3.2 may name wine_red; it is red_wine now."""
+    code, out, _ = cli("--pair", "wine_red", "-n", "3")
+    assert code == 0
+    assert out.startswith("red wine")
+
+
 def test_an_unknown_ingredient_exits_nonzero_with_suggestions(cli):
     code, _, err = cli("--pair", "garlik")
     assert code == 2
