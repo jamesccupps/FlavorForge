@@ -5069,6 +5069,10 @@ class FlavorForgeGUI:
             "novelty": self.engine.novelty_score(keys),
             "connections": connections,
             "dish_type": template.get("dish_type", ""),
+            # Generated recipes carry this and the recipe view prints it as
+            # SUITS; a dish built by hand was the one kind with no diet
+            # check, though it is the kind most likely to need one.
+            "diet": dietary_profile(chosen.values()),
         }
 
         # Show in recipe generator tab format

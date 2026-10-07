@@ -110,3 +110,13 @@ def test_build_recipe_works_without_reselecting_the_template(app):
     assert recipe and "error" not in recipe
     assert "{" not in recipe["name"], recipe["name"]
     assert len(recipe["ingredients"]) == len(app.build_current_template["structure"])
+
+
+def test_a_built_dish_gets_the_same_diet_check_as_a_generated_one(app, ffmod):
+    slot = next(iter(app.build_slot_vars))
+    var, candidates = app.build_slot_vars[slot]
+    var.set(candidates[0][0])
+    app._build_dish_generate()
+    recipe = app.current_recipe
+    assert recipe["diet"] == ffmod.dietary_profile(recipe["ingredients"].values())
+    assert "SUITS" in app.recipe_output.get("1.0", "end")
