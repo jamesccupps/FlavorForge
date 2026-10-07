@@ -255,6 +255,39 @@ def test_the_readme_counts_match_the_data(ffmod):
     assert f"{len(ffmod.DISH_TEMPLATES)} recipe templates" in readme
 
 
+def test_the_readme_link_count_matches_the_data(ffmod):
+    """It said 1,632 in one place and 1,801 in another; neither was checked."""
+    readme = (SRC.parent / "README.md").read_text(encoding="utf-8")
+    links = sum(len(i.compounds) for i in ffmod.INGREDIENTS.values())
+    stated = {int(n.replace(",", "")) for n in
+              re.findall(r"([\d,]+)\s+(?:flavor links|ingredient-compound links)", readme)}
+    assert stated == {links}, f"README states {sorted(stated)}, data has {links}"
+
+
+# The README's category table uses display labels; these are its keys.
+_README_CATEGORY_LABELS = {
+    "Grains & Starches": "grain", "Vegetables": "vegetable", "Spices": "spice",
+    "Dairy & Cheese": "dairy", "Fermented": "fermented", "Sauces": "sauce",
+    "Fruits": "fruit", "Herbs": "herb", "Proteins": "protein",
+    "Nuts & Seeds": "nut", "Seafood": "seafood", "Legumes": "legume",
+    "Sweeteners": "sweetener", "Citrus": "citrus", "Mushrooms": "mushroom",
+    "Oils & Fats": "oil/fat", "Alliums": "allium",
+}
+
+
+def test_the_readme_category_table_matches_the_data(ffmod):
+    """By 3.2, 11 of its 17 rows were wrong: herbs said 12 against 19, oils
+    3 against 7. Every row is checked, and every category must have one."""
+    readme = (SRC.parent / "README.md").read_text(encoding="utf-8")
+    actual = collections.Counter(i.category for i in ffmod.INGREDIENTS.values())
+    rows = dict(re.findall(r"^\| ([^|]+?) \| (\d+) \|", readme, re.M))
+    for label, cat in _README_CATEGORY_LABELS.items():
+        assert label in rows, f"no README row for {label}"
+        assert int(rows[label]) == actual[cat], \
+            f"README says {rows[label]} {label}, data has {actual[cat]}"
+    assert set(_README_CATEGORY_LABELS.values()) == set(ffmod.CATEGORIES)
+
+
 # ─── the module's own claims about itself ──────────────────────────────
 
 def test_the_module_docstring_counts_are_accurate(ffmod):

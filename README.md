@@ -105,22 +105,22 @@ The database is a mapping and could only ever be read one way: pick an ingredien
 | Category | Count | Examples |
 |---|---|---|
 | Grains & Starches | 48 | 24 noodles/pastas, 9 breads, 7 rices, plus quinoa / polenta / farro / couscous |
-| Vegetables | 42 | tomato, beet, fennel, bok choy, artichoke |
-| Spices | 36 | garam masala, za'atar, Old Bay, five spice |
-| Dairy & Cheese | 26 | gruyere, cotija, labneh, mascarpone |
-| Fermented | 25 | miso, gochujang, kimchi, balsamic |
+| Vegetables | 42 | tomato, beet, fennel, bok choy, artichoke, arugula |
+| Spices | 35 | garam masala, za'atar, Old Bay, five spice |
+| Dairy & Cheese | 31 | gruyere, cotija, labneh, halloumi, paneer; plant milks and cashew cream |
+| Fermented | 27 | miso, gochujang, kimchi, balsamic, red wine, black tea |
 | Sauces | 24 | marinara, alfredo, curry paste, chimichurri |
 | Fruits | 19 | strawberry, fig, passion fruit, lychee |
-| Nuts & Seeds | 14 | tahini, macadamia, peanut butter |
-| Proteins | 13 | chicken, beef, duck, tofu, tempeh |
-| Herbs | 12 | basil, tarragon, lemongrass, sage |
-| Seafood | 9 | salmon, shrimp, scallop, lobster, anchovy |
+| Herbs | 19 | basil, tarragon, lemongrass, shiso, Thai basil, lovage |
+| Proteins | 15 | chicken, beef, duck, tofu, tempeh, seitan, jackfruit |
+| Nuts & Seeds | 14 | tahini, macadamia, peanut butter, sesame seeds |
+| Seafood | 10 | salmon, shrimp, scallop, lobster, anchovy, squid |
+| Legumes | 8 | lentils, chickpeas, black beans, edamame, fava beans |
+| Sweeteners | 8 | honey, maple syrup, molasses, date syrup, agave |
+| Citrus | 7 | lemon, lime, orange, yuzu, blood orange, mandarin |
 | Mushrooms | 7 | chanterelle, morel, shiitake, truffle |
-| Legumes | 5 | lentils, chickpeas, black beans |
-| Sweeteners | 5 | honey, maple syrup, molasses |
+| Oils & Fats | 7 | olive oil, butter, sesame oil, ghee, duck fat |
 | Alliums | 5 | garlic, onion, shallot, leek, scallion |
-| Citrus | 4 | lemon, lime, orange, yuzu |
-| Oils & Fats | 3 | olive oil, butter, sesame oil |
 
 ### 102 Recipe Templates across 16 Dish Types
 One-Pot, Pasta & Noodles, Stir-Fry & Wok, Curry & Stew, Tacos & Wraps, Bowl, Soup (13 templates including chowders, ramen, pho, tom yum, gazpacho), Casserole & Bake (including mac & cheese), Grilled & Seared (including fried chicken), Salad & Slaw (including ceviche), Breakfast & Brunch, Sandwich (including burgers), Pizza & Flatbread, Dessert & Sweet, Snack & Appetizer (including wings, nachos, dumplings, empanadas, loaded fries), Sauce & Dip.
@@ -130,7 +130,7 @@ One-Pot, Pasta & Noodles, Stir-Fry & Wok, Curry & Stew, Tacos & Wraps, Bowl, Sou
 ## Installation
 
 ### Requirements
-- **Python 3.8+**
+- **Python 3.10+**
 - **tkinter** (included with Python on most systems)
 - No pip packages required — 100% standard library
 
@@ -251,12 +251,11 @@ FlavorForge saves user data to your home directory:
 
 ## Project Stats
 
-- **4,874 lines** of Python
 - **326 ingredients** across 17 categories
 - **82 aroma compounds** with descriptions
-- **1,632 flavor links**
+- **1,790 flavor links**
 - **102 recipe templates** across 16 dish types
-- **290 tests**, run on Linux and Windows across Python 3.10–3.13
+- **292 tests**, run on Linux and Windows across Python 3.10–3.14
 - **24 slot types** including grain, sauce, and broth subtypes
 - **7 tabs**: Pairing Explorer, Flavor Graph, Recipe Generator, Build a Dish, Bridge Finder, My Pantry, AI Chef
 - **Zero external dependencies** — pure Python stdlib + tkinter
