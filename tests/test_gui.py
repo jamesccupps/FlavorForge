@@ -69,6 +69,23 @@ def test_a_newer_ai_generation_owns_the_pane(app, monkeypatch):
     assert old_stop() and not new_stop()
 
 
+# ─── Saved recipes ─────────────────────────────────────────────────────
+
+def test_a_failed_save_is_not_reported_as_saved(app, monkeypatch):
+    """The status said "Saved!" before the write was attempted, and the
+    write's result was never looked at."""
+    app.current_recipe = app.engine.generate_recipe(seed_ingredient="salmon")
+    monkeypatch.setattr(app, "_save_all", lambda recipes: False)
+    app._save_current_recipe()
+    assert "failed" in app.save_status.cget("text").lower()
+
+
+def test_a_successful_save_still_says_so(app):
+    app.current_recipe = app.engine.generate_recipe(seed_ingredient="salmon")
+    app._save_current_recipe()
+    assert app.save_status.cget("text") == "Saved!"
+
+
 # ─── Pantry ────────────────────────────────────────────────────────────
 
 def test_the_mouse_wheel_is_not_captured_app_wide(app):

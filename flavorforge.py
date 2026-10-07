@@ -4535,18 +4535,24 @@ class FlavorForgeGUI:
 
         # Check for duplicates by name
         existing_names = [r.get("name") for r in saved]
-        if recipe_data.get("name") in existing_names:
-            # Update existing
+        updated = recipe_data.get("name") in existing_names
+        if updated:
             for i, r in enumerate(saved):
                 if r.get("name") == recipe_data.get("name"):
                     saved[i] = recipe_data
                     break
-            self.save_status.config(text="Updated!", fg=self.colors["warning"])
         else:
             saved.insert(0, recipe_data)  # Newest first
-            self.save_status.config(text="Saved!", fg=self.colors["success"])
 
-        self._save_all(saved)
+        # Reported after the write, not before it: the status used to say
+        # "Saved!" whether or not the file could be written.
+        if not self._save_all(saved):
+            self.save_status.config(text="Save failed — file not writable",
+                                    fg=self.colors["highlight"])
+        elif updated:
+            self.save_status.config(text="Updated!", fg=self.colors["warning"])
+        else:
+            self.save_status.config(text="Saved!", fg=self.colors["success"])
         self._refresh_saved_list()
         self.root.after(3000, lambda: self.save_status.config(text=""))
 
@@ -4584,9 +4590,11 @@ class FlavorForgeGUI:
         name = saved[idx].get("name", "this recipe")
         if messagebox.askyesno("Delete Recipe", f"Delete '{name}'?"):
             saved.pop(idx)
-            self._save_all(saved)
+            ok = self._save_all(saved)
             self._refresh_saved_list()
-            self.save_status.config(text="Deleted", fg=self.colors["highlight"])
+            self.save_status.config(
+                text="Deleted" if ok else "Delete failed — file not writable",
+                fg=self.colors["highlight"])
             self.root.after(2000, lambda: self.save_status.config(text=""))
 
     # ─── BUILD A DISH TAB ───────────────────────────────────────
@@ -5861,7 +5869,6 @@ class FlavorForgeGUI:
 
         # Save to dedicated recipes folder
         recipes_dir = os.path.join(os.path.expanduser("~"), "FlavorForge_Recipes")
-        os.makedirs(recipes_dir, exist_ok=True)
 
         # Clean filename from recipe name
         safe_name = "".join(c if c.isalnum() or c in " -_" else "" for c in self.ai_recipe_name)
@@ -5871,6 +5878,9 @@ class FlavorForgeGUI:
         filepath = os.path.join(recipes_dir, filename)
 
         try:
+            # Inside the try: outside it, a folder that could not be created
+            # raised into Tk's callback handler and the button did nothing.
+            os.makedirs(recipes_dir, exist_ok=True)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(f"FlavorForge AI Recipe\n")
                 f.write(f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
@@ -5884,7 +5894,6 @@ class FlavorForgeGUI:
             # Also save to the recipes JSON for the dropdown
             if self.current_recipe:
                 saved = self._load_all_saved()
-                import copy
                 recipe_data = {}
                 for k, v in self.current_recipe.items():
                     if k == "connections":
@@ -5901,7 +5910,10 @@ class FlavorForgeGUI:
                 existing = [r.get("name") for r in saved]
                 if recipe_data.get("name") not in existing:
                     saved.insert(0, recipe_data)
-                    self._save_all(saved)
+                    if not self._save_all(saved):
+                        self.ai_save_status.config(
+                            text="Saved the text file; the saved-recipes list "
+                                 "could not be updated", fg="#e74c3c")
                     self._refresh_saved_list()
 
         except Exception as e:
