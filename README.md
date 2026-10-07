@@ -87,8 +87,8 @@ compounds: acetic acid, acetoin, butyric acid, diacetyl, ethyl butyrate, hexanal
   ingredient              score  shared aroma
   pecorino                0.755  butyric acid, acetic acid, acetoin, diacetyl
   feta                    0.560  butyric acid, acetic acid, acetoin, diacetyl
-  cheddar                 0.489  butyric acid, acetoin, diacetyl, methylpyrazine
-  gruyere                 0.484  butyric acid, acetoin, diacetyl, methylpyrazine
+  cheddar                 0.487  butyric acid, acetoin, diacetyl, methylpyrazine
+  gruyere                 0.479  butyric acid, acetoin, diacetyl, methylpyrazine
 ```
 
 ### 🔬 Compound Lookup
