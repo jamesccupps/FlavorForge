@@ -4559,12 +4559,16 @@ class FlavorForgeGUI:
         self.build_output.tag_config("technique", foreground="#bbb", font=("Consolas", 10))
         self.build_output.config(state=tk.DISABLED)
 
-        self._build_show_welcome()
-        self._on_build_type_change()  # Populate initial template list
-
-        # Store state
+        # Before the template list is populated, not after: populating it
+        # selects the first template and records it here, and resetting this
+        # afterwards left the tab showing that template's slots while
+        # believing none was chosen — so the first pick showed the welcome
+        # screen and "Build Recipe" asked for a template that was on screen.
         self.build_current_template = None
         self.build_current_recipe = None
+
+        self._build_show_welcome()
+        self._on_build_type_change()  # Populate initial template list
 
     def _build_show_welcome(self):
         self.build_output.config(state=tk.NORMAL)
