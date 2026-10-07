@@ -10,7 +10,6 @@ No test here contacts api.anthropic.com.
 """
 import json
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest

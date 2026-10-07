@@ -4,7 +4,6 @@ The generator is the feature people actually use, and it was the least
 constrained part of the codebase — nothing checked that asking for a salmon
 recipe produced a recipe with salmon in it as the protein.
 """
-import random
 
 import pytest
 

@@ -42,7 +42,7 @@ import urllib.error
 import urllib.parse
 import os
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Set, Tuple, Optional
 
 # ═══════════════════════════════════════════════════════════════════
@@ -2584,19 +2584,6 @@ class FlavorEngine:
             return 0.0
         return math.log(self._total_ings / freq)
 
-    def jaccard_similarity(self, set_a: Set[str], set_b: Set[str]) -> float:
-        """Plain Jaccard: |A n B| / |A u B|, every compound counted equally.
-
-        Kept because it is the honest baseline the weighted score is measured
-        against, and the Graph tab offers it as "unweighted". It is NOT what
-        drives pairings — the README used to call the scoring "rarity-weighted
-        Jaccard similarity", which it never was: weighted_similarity normalises
-        by average set size, not by the union.
-        """
-        if not set_a or not set_b:
-            return 0.0
-        return len(set_a & set_b) / len(set_a | set_b)
-
     def weighted_similarity(self, name_a: str, name_b: str) -> Tuple[float, Set[str]]:
         """Rarity-weighted Jaccard: W(A n B) / W(A u B).
 
@@ -3056,7 +3043,6 @@ class FlavorEngine:
         }
 
         # ── Dietary tags ──
-        categories_used = set(self.ingredients[k].category for k in all_keys if k in self.ingredients)
         # Per-ingredient, not inferred from the category. The category version
         # reported a tofu stir-fry as non-vegetarian (tofu is category
         # "protein") and excluded egg from vegetarian for the same reason.
@@ -3328,7 +3314,6 @@ class FlavorEngine:
         seen_combos = set()
 
         # Deduplicate and sort
-        seen = set()
         unique = []
         results.sort(key=lambda r: r["score"], reverse=True)
         for r in results:
@@ -4316,7 +4301,6 @@ class FlavorForgeGUI:
 
         # ── Dish summary ──
         all_keys = [v for v in recipe["ingredients"].values() if v in INGREDIENTS]
-        all_names = [INGREDIENTS[k].name for k in all_keys]
         self.recipe_output.insert(tk.END, "  WHAT THIS IS\n", "section")
 
         # Show each ingredient with its category, description, and role
@@ -4341,13 +4325,6 @@ class FlavorForgeGUI:
                 self.recipe_output.insert(tk.END, f"  [{ing.category}]", "compound")
                 self.recipe_output.insert(tk.END, f" — {ing.flavor_notes}")
                 self.recipe_output.insert(tk.END, f"\n      Role: {role}\n", "novelty_low")
-
-        # Identify the star ingredient (most connections)
-        conn_counts = defaultdict(int)
-        for conn in recipe.get("connections", []):
-            for p in conn["pair"]:
-                conn_counts[p] += 1
-        star = max(conn_counts, key=conn_counts.get) if conn_counts else (all_keys[0] if all_keys else None)
 
         # Novelty bar
         novelty = recipe["novelty"]
@@ -5382,7 +5359,6 @@ class FlavorForgeGUI:
             else:
                 var = self.pantry_vars[name]
 
-            color = CATEGORIES.get(ing.category, "#555")
             cb = tk.Checkbutton(self.pantry_inner,
                                 text=f" {ing.name} — {ing.flavor_notes}  [{ing.category}]",
                                 variable=var,

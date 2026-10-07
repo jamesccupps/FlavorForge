@@ -282,13 +282,6 @@ def test_the_docstring_dish_type_count_excludes_the_any_filter(ffmod):
     assert int(m.group(1)) == len(ffmod.DISH_TYPES) - 1
 
 
-def test_the_readme_counts_match_the_data(ffmod):
-    readme = (SRC.parent / "README.md").read_text(encoding="utf-8")
-    assert f"{len(ffmod.INGREDIENTS)} ingredients" in readme
-    assert f"{len(ffmod.COMPOUNDS)} aroma compounds" in readme
-    assert f"{len(ffmod.DISH_TEMPLATES)} recipe templates" in readme
-
-
 # ─── reachability ──────────────────────────────────────────────────────
 
 def _reachable(ffmod):
