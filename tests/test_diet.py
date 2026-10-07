@@ -234,6 +234,52 @@ def test_a_diet_and_a_seed_compose(engine, ffmod):
                 assert ffmod.diet_allows(name, "vegan")
 
 
+def test_a_seed_the_diet_forbids_is_refused_not_placed(engine):
+    """Through 3.2 this returned a bacon dish whose own report said it suited
+    no diet at all — the seed won and the diet was dropped without a word."""
+    r = engine.generate_recipe(seed_ingredient="bacon", diet="vegan")
+    assert "error" in r
+    assert "bacon" in r["error"] and "vegan" in r["error"]
+
+
+def _viable(ffmod, dish, diet):
+    return [t for t in ffmod.DISH_TEMPLATES
+            if t["dish_type"] == dish and ffmod.template_allows(t, diet)
+            and all(ffmod.get_slot_candidates(s, diet=diet) for s in t["needs"])]
+
+
+@pytest.mark.parametrize("diet", ["pescatarian", "vegetarian", "vegan"])
+def test_every_dish_type_either_honours_the_diet_or_says_it_cannot(engine, ffmod, diet):
+    """The silent fallback this replaces: with no template left, generation
+    used the unfiltered list, so a vegan Sauce & Dip came back as aioli and
+    nothing said the diet had been dropped."""
+    for dish in ffmod.DISH_TYPES[1:]:
+        for _ in range(5):
+            r = engine.generate_recipe(dish_type=dish, diet=diet)
+            if _viable(ffmod, dish, diet):
+                assert "error" not in r, (dish, r.get("error"))
+                assert diet in r["diet"]["suits"], (dish, r["ingredients"])
+            else:
+                assert "error" in r and dish in r["error"], (dish, r)
+
+
+def test_the_no_template_path_is_actually_exercised(ffmod):
+    """Guard on the guard: if every dish type gained a template for every
+    diet, the sweep above would only test one branch. Today a vegan Sauce &
+    Dip is impossible — every dip template assumes dairy or egg."""
+    impossible = [(dish, diet) for dish in ffmod.DISH_TYPES[1:]
+                  for diet in ("pescatarian", "vegetarian", "vegan")
+                  if not _viable(ffmod, dish, diet)]
+    assert impossible, "no dish/diet pair is impossible; drop this guard"
+
+
+def test_cli_refuses_a_seed_the_diet_forbids(cli):
+    code, out, err = cli("--recipe", "--seed", "bacon", "--diet", "vegan")
+    assert code != 0
+    assert "not vegan" in err
+    assert out == ""
+
+
 def test_surprise_me_honours_a_diet(engine, ffmod):
     for _ in range(6):
         r = engine.surprise_me(diet="vegan")

@@ -2804,6 +2804,13 @@ class FlavorEngine:
         if seed_ingredient and seed_ingredient not in self.ingredients:
             seed_ingredient = None
 
+        # A diet is a constraint, not a preference. Through 3.2 a seed the
+        # diet forbids was placed anyway — a "vegan" bacon recipe came back
+        # labelled as suiting nothing — so the request is refused instead.
+        if seed_ingredient and diet and not diet_allows(seed_ingredient, diet):
+            return {"error": f"{self.ingredients[seed_ingredient].name} is not "
+                             f"{diet}. Pick another seed or another diet."}
+
         # Filter templates by dish type
         if dish_type and dish_type != "Any":
             templates = [t for t in DISH_TEMPLATES if t.get("dish_type") == dish_type]
@@ -2811,6 +2818,28 @@ class FlavorEngine:
                 templates = DISH_TEMPLATES
         else:
             templates = DISH_TEMPLATES
+
+        # A diet can empty a required slot outright — there is no vegan
+        # substitute for the protein in a template built around bacon — and a
+        # template's method can assume what the diet forbids. Drop those.
+        #
+        # If nothing survives, say so. This used to fall back to the
+        # unfiltered list, promising "a recipe plus a warning"; no warning was
+        # ever produced, so a vegan Sauce & Dip came back as aioli or tzatziki
+        # with nothing to say the diet had been dropped.
+        #
+        # Applied before the seed filter so that a seed which fits only
+        # templates the diet rules out is still placed, as an accent, in one
+        # that the diet allows.
+        if diet and DIET_FORBIDS.get(diet):
+            templates = [t for t in templates
+                         if template_allows(t, diet)
+                         and all(get_slot_candidates(slot, diet=diet)
+                                 for slot in t["needs"])]
+            if not templates:
+                kind = dish_type if dish_type and dish_type != "Any" else "recipe"
+                return {"error": f"No {kind} template suits a {diet} diet. "
+                                 f"Try another dish type."}
 
         # Then, if the user named a seed, keep only templates that have a slot
         # able to hold it. Without this the template is chosen at random and
@@ -2828,20 +2857,6 @@ class FlavorEngine:
                               for s in t["structure"])]
             if fitting:
                 templates = fitting
-
-        # A diet can empty a required slot outright — there is no vegan
-        # substitute for the protein in a template built around bacon. Drop
-        # those templates rather than silently producing a dish with a hole
-        # in it, and fall back to the unfiltered list only if nothing at all
-        # survives, so the user gets a recipe plus a warning instead of
-        # nothing at all.
-        if diet and DIET_FORBIDS.get(diet):
-            viable = [t for t in templates
-                      if template_allows(t, diet)
-                      and all(get_slot_candidates(slot, diet=diet)
-                              for slot in t["needs"])]
-            if viable:
-                templates = viable
 
         best_recipe = None
         best_novelty = -1
