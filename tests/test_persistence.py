@@ -85,6 +85,36 @@ def test_a_secret_file_is_owner_only(ffmod, target):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="no POSIX mode bits")
+def test_a_secret_is_never_on_disk_with_loose_permissions(ffmod, target, monkeypatch):
+    """The temp file was created with the default umask and only chmod-ed
+    once the key was already written into it. Look at it mid-write."""
+    seen = []
+    real_dump = ffmod.json.dump
+
+    def spying_dump(obj, fh, **kw):
+        seen.append(os.stat(target + ".tmp").st_mode & 0o777)
+        return real_dump(obj, fh, **kw)
+
+    monkeypatch.setattr(ffmod.json, "dump", spying_dump)
+    old = os.umask(0o022)                  # the common default, made explicit
+    try:
+        assert ffmod._write_json_atomic(target, {"anthropic_key": "k"}, secret=True)
+    finally:
+        os.umask(old)
+    assert seen and not (seen[0] & 0o077), f"temp file was {oct(seen[0])} while the key was written"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="no POSIX mode bits")
+def test_a_stale_temp_file_does_not_block_or_loosen_a_secret_save(ffmod, target):
+    """A world-readable temp left by a crash: O_CREAT would keep its mode and
+    O_EXCL would refuse it, so the helper must remove it first."""
+    Path(target + ".tmp").write_text("{}", encoding="utf-8")
+    os.chmod(target + ".tmp", 0o644)
+    assert ffmod._write_json_atomic(target, {"anthropic_key": "k"}, secret=True)
+    assert not (os.stat(target).st_mode & 0o077)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="no POSIX mode bits")
 def test_an_ordinary_file_is_not_given_special_treatment(ffmod, target):
     """The pantry is not a secret; only the config asks for the chmod."""
     ffmod._write_json_atomic(target, {"pantry": ["salt"]})

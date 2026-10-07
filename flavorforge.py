@@ -3433,7 +3433,21 @@ def _write_json_atomic(path: str, data, secret: bool = False) -> bool:
     """
     tmp = path + ".tmp"
     try:
-        with open(tmp, "w", encoding="utf-8") as fh:
+        if secret:
+            # Created owner-only rather than chmod-ed after the write: the
+            # API key used to sit in a file the default umask left
+            # world-readable for as long as the write took. O_EXCL after the
+            # unlink, because O_CREAT does not change the mode of a file that
+            # already exists -- a stale temp from a crash would keep its own.
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            fh = os.fdopen(fd, "w", encoding="utf-8")
+        else:
+            fh = open(tmp, "w", encoding="utf-8")
+        with fh:
             json.dump(data, fh, indent=2, default=list)
         if secret:
             _restrict_permissions(tmp)
