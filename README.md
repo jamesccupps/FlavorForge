@@ -1,5 +1,9 @@
 # ⚗ FlavorForge
 
+[![CI](https://github.com/jamesccupps/FlavorForge/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesccupps/FlavorForge/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/jamesccupps/FlavorForge?label=release)](https://github.com/jamesccupps/FlavorForge/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 **A procedural cooking engine that generates novel recipes using molecular flavor science, texture pairing, and taste balance analysis — with optional AI Chef integration.**
 
 FlavorForge doesn't just mash random ingredients together. It uses a database of 326 real ingredients mapped to 82 aroma compounds (linalool, furaneol, methylpyrazine, etc.) to find scientifically-grounded flavor pairings. Then it layers on texture contrast analysis and taste balance checking to make sure the dish actually works.
