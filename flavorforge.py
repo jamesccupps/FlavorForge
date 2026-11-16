@@ -3870,6 +3870,7 @@ class FlavorForgeGUI:
         self.graph_nodes = {}
         self.graph_layout_dirty = True
         self._graph_redraw_job = None
+        self._pantry_filter_job = None
         self.current_recipe = None  # Store last generated recipe for AI
         self.pantry = set()  # Ingredients the user has on hand
         self._load_pantry()
@@ -5327,7 +5328,7 @@ class FlavorForgeGUI:
         tk.Label(search_frame, text="Search:", bg=self.colors["panel"],
                  fg=self.colors["text_dim"], font=("Consolas", 9)).pack(side=tk.LEFT)
         self.pantry_search_var = tk.StringVar()
-        self.pantry_search_var.trace_add("write", self._filter_pantry_list)
+        self.pantry_search_var.trace_add("write", self._schedule_pantry_filter)
         tk.Entry(search_frame, textvariable=self.pantry_search_var,
                  bg=self.colors["accent"], fg=self.colors["text"],
                  insertbackground=self.colors["text"],
@@ -5340,7 +5341,7 @@ class FlavorForgeGUI:
         cats = ["All"] + sorted(set(i.category for i in INGREDIENTS.values()))
         ttk.Combobox(cat_frame, textvariable=self.pantry_cat_var,
                      values=cats, state="readonly", width=20).pack(fill=tk.X)
-        self.pantry_cat_var.trace_add("write", lambda *a: self._filter_pantry_list())
+        self.pantry_cat_var.trace_add("write", self._schedule_pantry_filter)
 
         # Quick-add buttons
         quick_frame = tk.Frame(left, bg=self.colors["panel"])
@@ -5491,6 +5492,20 @@ class FlavorForgeGUI:
                                 font=("Consolas", 9),
                                 anchor="w")
             cb.pack(fill=tk.X, padx=5, pady=1)
+
+    def _schedule_pantry_filter(self, *_):
+        """Rebuild the list once, 150 ms after the last keystroke.
+
+        Every keystroke in the search box used to destroy and recreate all
+        326 checkboxes immediately, so typing "parmesan" built eight lists.
+        """
+        if self._pantry_filter_job is not None:
+            self.root.after_cancel(self._pantry_filter_job)
+        self._pantry_filter_job = self.root.after(150, self._run_pantry_filter)
+
+    def _run_pantry_filter(self):
+        self._pantry_filter_job = None
+        self._filter_pantry_list()
 
     def _filter_pantry_list(self, *args):
         self._populate_pantry_checkboxes(

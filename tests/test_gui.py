@@ -203,6 +203,19 @@ def test_a_burst_of_resizes_and_slider_moves_redraws_the_graph_once(app, monkeyp
     assert calls == [1]
 
 
+def test_typing_in_the_pantry_search_rebuilds_the_list_once(app, monkeypatch):
+    """Each keystroke rebuilt all 326 checkboxes; typing a word built one
+    list per letter."""
+    calls = []
+    monkeypatch.setattr(app, "_populate_pantry_checkboxes",
+                        lambda *a, **k: calls.append(a))
+    for i in range(1, 9):
+        app.pantry_search_var.set("parmesan"[:i])
+    assert calls == [], "nothing should rebuild mid-word"
+    _settle(app)
+    assert calls == [("parmesan", "All")]
+
+
 # ─── Pantry ────────────────────────────────────────────────────────────
 
 def test_the_mouse_wheel_is_not_captured_app_wide(app):
