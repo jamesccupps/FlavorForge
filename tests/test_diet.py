@@ -318,6 +318,57 @@ def test_cli_refuses_a_seed_the_diet_forbids(cli):
     assert out == ""
 
 
+# ─── the label on a recipe made with no diet chosen ────────────────────
+
+def test_the_label_never_contradicts_the_method(ffmod):
+    """Through 3.3.0 the label read only the slots, so with no diet chosen a
+    cream-and-gelatin panna cotta printed "SUITS: vegan". An outside review
+    measured 17% of no-diet recipes labelled with a diet their own method
+    rules out. Every template, a spread of random fills."""
+    import random
+    rng = random.Random(7)
+    for t in ffmod.DISH_TEMPLATES:
+        method = ffmod.method_diet_tags(t)
+        for _ in range(20):
+            fill = [rng.choice(ffmod.get_slot_candidates(s)) for s in t["structure"]]
+            label = ffmod.recipe_diet(t, fill)
+            for diet in label["suits"]:
+                assert not (method & ffmod.DIET_FORBIDS[diet]), \
+                    f"{t['name']} labelled {diet}, method says {sorted(method)}"
+            assert method <= set(label["contains"])
+
+
+def _only(monkeypatch, ffmod, fragment):
+    t = next(t for t in ffmod.DISH_TEMPLATES if fragment in t["name"])
+    monkeypatch.setattr(ffmod, "DISH_TEMPLATES", [t])
+    return t
+
+
+def test_a_generated_panna_cotta_is_not_called_vegan(engine, ffmod, monkeypatch):
+    _only(monkeypatch, ffmod, "Panna Cotta")
+    r = engine.generate_recipe()                      # no diet chosen
+    assert r["diet"]["suits"] == [] and {"dairy", "meat"} <= set(r["diet"]["contains"])
+    prompt = engine.recipe_to_ai_prompt(r)
+    dietary = [l for l in prompt.splitlines() if l.startswith("DIETARY:")]
+    assert not dietary or "vegan" not in dietary[0], "the AI Chef was told it is vegan"
+
+
+def test_pantry_recipes_carry_the_same_label(engine, ffmod, monkeypatch):
+    """They carried no diet information at all, so a pantry recipe sent to
+    the AI Chef was labelled from its ingredients alone."""
+    t = _only(monkeypatch, ffmod, "Panna Cotta")
+    pantry = {ffmod.get_slot_candidates(s)[0] for s in t["structure"]}
+    pantry |= {ffmod.get_slot_candidates(s)[1] for s in t["structure"]}
+    found = engine.pantry_recipes(pantry)
+    assert found, "the pantry should make at least one panna cotta"
+    for r in found:
+        assert "vegetarian" not in r["diet"]["suits"], r["name"]
+    short = engine.almost_there(set(sorted(pantry)[:-1]))
+    assert short, "one item short should still find a near miss"
+    for r in short:
+        assert "vegetarian" not in r["diet"]["suits"], r["name"]
+
+
 def test_surprise_me_honours_a_diet(engine, ffmod):
     for _ in range(6):
         r = engine.surprise_me(diet="vegan")

@@ -2460,6 +2460,25 @@ def dietary_profile(names) -> dict:
     }
 
 
+def recipe_diet(template: dict, names) -> dict:
+    """Which diets a finished recipe suits: its ingredients *and* its method.
+
+    dietary_profile sees only what the slots hold. Through 3.3.0 that was the
+    whole label, so a recipe made with no diet chosen -- where every template
+    is in play -- printed "SUITS: vegan" for a panna cotta whose own method
+    says to infuse cream and set it with gelatin, and told the AI Chef the
+    same. The method filter only ran when a diet was asked for. Every place
+    a recipe is finished now goes through here.
+    """
+    profile = dietary_profile(names)
+    method = method_diet_tags(template)
+    if method:
+        profile["contains"] = sorted(set(profile["contains"]) | method)
+        profile["suits"] = [d for d in profile["suits"]
+                            if not (method & DIET_FORBIDS[d])]
+    return profile
+
+
 def _compute_slot_candidates(slot: str) -> List[str]:
     if slot in _SLOT_SUBSETS:
         return sorted(n for n in _SLOT_SUBSETS[slot] if n in INGREDIENTS)
@@ -2953,7 +2972,7 @@ class FlavorEngine:
             "novelty": recipe["novelty"],
             "connections": connections,
             "dish_type": recipe["template"].get("dish_type", ""),
-            "diet": dietary_profile(recipe["ingredients"].values()),
+            "diet": recipe_diet(recipe["template"], recipe["ingredients"].values()),
         }
 
     def surprise_me(self, dish_type: Optional[str] = None,
@@ -3059,7 +3078,9 @@ class FlavorEngine:
         # Per-ingredient, not inferred from the category. The category version
         # reported a tofu stir-fry as non-vegetarian (tofu is category
         # "protein") and excluded egg from vegetarian for the same reason.
-        profile = dietary_profile(recipe["ingredients"].values())
+        # The recipe's own label when it has one, since that one also reads
+        # the method; a recipe saved before 3.3.1 may not.
+        profile = recipe.get("diet") or dietary_profile(recipe["ingredients"].values())
         dietary = list(profile["suits"])
         if profile["verify"]:
             dietary.append("depends on the brand of "
@@ -3257,6 +3278,7 @@ class FlavorEngine:
                 "connections": connections,
                 "score": r["score"],
                 "dish_type": r["template"].get("dish_type", ""),
+                "diet": recipe_diet(r["template"], r["ingredients"].values()),
             })
 
         return final
@@ -3377,6 +3399,7 @@ class FlavorEngine:
                 "missing_slot": r["missing_slot"],
                 "dish_type": r["template"].get("dish_type", ""),
                 "score": r["score"],
+                "diet": recipe_diet(r["template"], r["ingredients"].values()),
             })
 
         return final
@@ -5095,7 +5118,7 @@ class FlavorForgeGUI:
             # Generated recipes carry this and the recipe view prints it as
             # SUITS; a dish built by hand was the one kind with no diet
             # check, though it is the kind most likely to need one.
-            "diet": dietary_profile(chosen.values()),
+            "diet": recipe_diet(template, chosen.values()),
         }
 
         # Show in recipe generator tab format
