@@ -107,6 +107,28 @@ def test_a_successful_save_still_says_so(app):
     assert app.save_status.cget("text") == "Saved!"
 
 
+def test_a_saved_almost_there_recipe_opens_again(app, monkeypatch):
+    """Almost There recipes had no "novelty", and the recipe view read it
+    directly: send one to the AI Chef, save it, and loading it later raised
+    KeyError in the button handler with the recipe half drawn."""
+    monkeypatch.setattr(app.ai_chef, "generate", lambda *a, **k: None)
+    app.pantry = {"salt", "garlic", "onion", "tomato", "chicken", "rice", "lemon"}
+    app._pantry_almost_there()
+    app._pantry_send_to_ai()
+    app._save_current_recipe()
+    app._refresh_saved_list()
+    app.saved_recipe_menu.current(0)
+    app._load_saved_recipe()
+    assert app.current_recipe["name"] in app.recipe_output.get("1.0", "end")
+    assert "Novelty" in app.recipe_output.get("1.0", "end"), "the view finished drawing"
+
+
+def test_a_hand_edited_saved_recipe_without_novelty_still_opens(app):
+    app._display_recipe({"name": "Plain Toast", "ingredients": {"bread": "bread"},
+                         "connections": []})
+    assert "Plain Toast" in app.recipe_output.get("1.0", "end")
+
+
 # ─── Pantry ────────────────────────────────────────────────────────────
 
 def test_the_mouse_wheel_is_not_captured_app_wide(app):

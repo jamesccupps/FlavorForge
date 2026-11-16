@@ -3451,6 +3451,10 @@ class FlavorEngine:
                 "dish_type": r["template"].get("dish_type", ""),
                 "score": r["score"],
                 "diet": recipe_diet(r["template"], r["ingredients"].values()),
+                # Every other recipe carries it, and the recipe view reads it.
+                # Without it, an Almost There recipe sent to the AI Chef and
+                # saved could never be opened again.
+                "novelty": self.novelty_score(r["all_ingredients"]),
             })
 
         return final
@@ -4436,7 +4440,7 @@ class FlavorForgeGUI:
                 self.recipe_output.insert(tk.END, f"\n      Role: {role}\n", "novelty_low")
 
         # Novelty bar
-        novelty = recipe["novelty"]
+        novelty = recipe.get("novelty", 0.0)
         if novelty > 0.6:
             tag, label = "novelty_high", "HIGHLY NOVEL"
         elif novelty > 0.4:
@@ -4528,7 +4532,7 @@ class FlavorForgeGUI:
 
         # ── Technique ──
         self.recipe_output.insert(tk.END, "\n  ROUGH OUTLINE\n", "section")
-        self.recipe_output.insert(tk.END, f"    {recipe['technique']}\n", "technique")
+        self.recipe_output.insert(tk.END, f"    {recipe.get('technique', '')}\n", "technique")
         self.recipe_output.insert(tk.END,
             "    (Send to AI Chef for a proper recipe with quantities & steps)\n", "novelty_low")
 
