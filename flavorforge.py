@@ -1239,7 +1239,7 @@ INGREDIENTS = {
         {"methylpyrazine", "acetylpyrazine", "methional", "dimethyl_sulfide",
          "thiazole", "maltol"},
         ["sprinkle", "blend", "toast", "stir"],
-        "nutty, cheesy, savory — the pyrazines parmesan gets from ageing"),
+        "nutty, cheesy, savory — the pyrazines parmesan gets from aging"),
     "cashew_cream": Ingredient("cashew cream", "dairy",
         {"hexanal", "nonanal", "benzaldehyde", "maltol", "gamma_octalactone"},
         ["blend", "simmer", "drizzle", "thicken"],
@@ -1403,7 +1403,7 @@ DRESSINGS = {
 # dairy-category items are plant milks and creams -- "Baked Pasta and Oat
 # Milk" or "top with oat milk and bake until bubbly". A slot that means the
 # cheese now holds cheese -- plus nutritional yeast, which the database
-# already describes as "the pyrazines parmesan gets from ageing" and which is
+# already describes as "the pyrazines parmesan gets from aging" and which is
 # the usual plant stand-in, so a vegan still gets a pizza.
 #
 # Butter, cream, buttermilk, whipped cream, coconut milk and oat milk are in
@@ -2561,7 +2561,7 @@ def slot_candidates_cached(slot: str) -> List[str]:
 
     generate_recipe tries 60 templates per call and surprise_me calls it 40
     times, so this was rebuilt roughly 8,700 times per Surprise Me — each a
-    full scan of all 303 ingredients, and 57% of the wall time of the whole
+    full scan of the ingredient table, and 57% of the wall time of the whole
     operation. The database is immutable at runtime, so once is enough.
     """
     cached = _SLOT_CANDIDATES.get(slot)
@@ -2631,8 +2631,8 @@ class FlavorEngine:
         # Memoised pair scores. The database is immutable at runtime, so a
         # pair's score is a constant. One Surprise Me asks for 12,836 of them
         # across ~2,400 novelty evaluations, and the Graph tab re-runs the
-        # whole 303x303 sweep on every threshold nudge and every category
-        # filter, which is 45,753 pairs each time.
+        # whole all-pairs sweep on every threshold nudge and every category
+        # filter, which is 52,975 pairs each time.
         self._sim_cache: Dict[Tuple[str, str], Tuple[float, Set[str]]] = {}
 
     def _sum_weights(self, compounds) -> float:
@@ -2742,7 +2742,7 @@ class FlavorEngine:
             score, shared = self.weighted_similarity(ingredient_name, other_name)
             # A match resting entirely on compounds present in >30% of the
             # database is not a pairing, it is a coincidence -- hexanal alone
-            # links 63% of everything here. Scoring already pushes these down;
+            # links 62% of everything here. Scoring already pushes these down;
             # this keeps them off the list altogether, so an ingredient with
             # few distinctive compounds returns a short honest list rather
             # than 25 rows of noise. `shared` itself is untouched, so the
@@ -4125,7 +4125,7 @@ class FlavorForgeGUI:
                                              "compound")
                 else:
                     self.pair_results.insert(
-                        tk.END, "  same role, different flavour — swap with care\n",
+                        tk.END, "  same role, different flavor — swap with care\n",
                         "score_low")
 
         self.pair_results.config(state=tk.DISABLED)
