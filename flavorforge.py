@@ -2410,6 +2410,26 @@ def method_diet_tags(template: dict) -> set:
     return found
 
 
+# Method words whose diet depends on the brand or the kitchen, the method-text
+# counterpart of the "verify" ingredient tag: the recipe says "check the
+# label on" them rather than guessing. Wonton skins are usually egg; pastry,
+# pie crust and tart shells usually butter or lard; gravy is usually meat
+# stock; and bare "stock" could be anything. Definite stocks are blanked
+# first -- chicken and beef stock are already meat, vegetable stock is fine.
+_METHOD_VERIFY = ("wonton skins", "dumpling skins", "pastry dough", "pie crust",
+                  "tart shell", "gravy", "stock")
+_DEFINITE_STOCKS = ("chicken stock", "beef stock", "vegetable stock")
+
+
+def method_verify_terms(template: dict) -> set:
+    """Method words a cook should check the label on."""
+    text = re.sub(r"\{[a-z_]+\}", " ", template.get("technique", "")).lower()
+    for phrase in _DEFINITE_STOCKS:
+        text = text.replace(phrase, " ")
+    return {w for w in _METHOD_VERIFY
+            if re.search(r"\b" + re.escape(w) + r"\b", text)}
+
+
 def template_allows(template: dict, diet: str) -> bool:
     forbidden = DIET_FORBIDS.get(diet)
     if not forbidden:
@@ -2471,6 +2491,7 @@ def recipe_diet(template: dict, names) -> dict:
     a recipe is finished now goes through here.
     """
     profile = dietary_profile(names)
+    profile["verify"] = sorted(set(profile["verify"]) | method_verify_terms(template))
     method = method_diet_tags(template)
     if method:
         profile["contains"] = sorted(set(profile["contains"]) | method)

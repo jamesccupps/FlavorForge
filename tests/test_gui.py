@@ -156,5 +156,6 @@ def test_a_built_dish_gets_the_same_diet_check_as_a_generated_one(app, ffmod):
     var.set(candidates[0][0])
     app._build_dish_generate()
     recipe = app.current_recipe
-    assert recipe["diet"] == ffmod.dietary_profile(recipe["ingredients"].values())
+    assert recipe["diet"] == ffmod.recipe_diet(app.build_current_template,
+                                               recipe["ingredients"].values())
     assert "SUITS" in app.recipe_output.get("1.0", "end")

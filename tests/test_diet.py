@@ -369,6 +369,28 @@ def test_pantry_recipes_carry_the_same_label(engine, ffmod, monkeypatch):
         assert "vegetarian" not in r["diet"]["suits"], r["name"]
 
 
+@pytest.mark.parametrize("fragment,term", [
+    ("Wonton Soup", "wonton skins"),     # usually egg
+    ("Dumplings with", "dumpling skins"),
+    ("Pot Pie", "pastry dough"),         # usually butter or lard
+    ("Quiche", "pie crust"),
+    ("Custard", "tart shell"),
+    ("Shepherd's Pie", "gravy"),         # usually meat stock
+    ("Gumbo", "stock"),                  # "add stock": which one is the cook's call
+])
+def test_method_words_that_depend_on_the_brand_say_check_the_label(ffmod, fragment, term):
+    """The ingredient table could already say "check the label" on kimchi;
+    nothing could say it about a method that wraps the filling in wonton
+    skins. An outside review listed these."""
+    t = _template(ffmod, fragment)
+    assert term in ffmod.recipe_diet(t, [])["verify"]
+
+
+def test_a_named_stock_is_not_a_check_the_label_item(ffmod):
+    for text in ("Simmer in vegetable stock.", "Simmer in chicken stock."):
+        assert "stock" not in ffmod.method_verify_terms({"technique": text})
+
+
 def test_surprise_me_honours_a_diet(engine, ffmod):
     for _ in range(6):
         r = engine.surprise_me(diet="vegan")
