@@ -36,7 +36,7 @@ Generate random recipe concepts filtered by dish type (Pizza, Pasta, Soup, Curry
 - What every ingredient is and why it's there
 - Molecular connections between ingredients
 - Texture and taste balance analysis with suggestions
-- Which diets it suits, and which ingredients to check the label on
+- Which diets it suits — judged from the method as well as the ingredients — and what to check the label on
 - A novelty score
 
 ### Build a Dish
@@ -45,7 +45,7 @@ Choose a dish type, pick a template, and fill in each slot with guided suggestio
 - **Texture gaps** — "missing crunch, try nuts or breadcrumbs"
 - **Taste balance** — "no acid, consider lemon or vinegar"
 
-Includes 24 noodle/pasta types, 9 breads, 7 rices, 8 broths, 16 cooking sauces, and 21 dressings.
+Includes 24 noodle/pasta types, 9 breads, 7 rices, 8 broths, 16 cooking sauces, 27 dressings, and 20 cheeses.
 
 ### Bridge Finder
 Pick two ingredients that seem incompatible (chocolate + salmon) and find a third ingredient that shares compounds with both — bridging the gap.
@@ -62,7 +62,9 @@ That second filter matters. Twenty-nine of the 102 templates name an animal prod
 
 Classification is per ingredient, because the category cannot carry it: chicken stock is a "sauce", fish sauce and Worcestershire are "fermented", coconut milk is filed under "dairy" because it behaves like cream in a pan, egg noodles contain egg, and mayonnaise is egg rather than milk.
 
-Where the answer genuinely depends on the jar — kimchi, caramel, curry paste, naan, gnocchi, chocolate — the app says *check the label* rather than picking an answer or quietly dropping half your condiments.
+Where the answer genuinely depends on the jar — kimchi, caramel, curry paste, naan, gnocchi, chocolate — the app says *check the label* rather than picking an answer or quietly dropping half your condiments. The same goes for the method: wonton skins, pastry, pie crust, gravy and an unnamed "stock" all depend on the brand or the kitchen.
+
+The label on every recipe reads the method too, whether or not you picked a diet: a panna cotta set with gelatin is never called vegetarian, and a dish built by hand on the Build a Dish tab gets the same check.
 
 ### Compound lookup
 The database is a mapping and could only ever be read one way: pick an ingredient, see its compounds. *What else tastes of geosmin?* is the more interesting half, and `--compound` answers it — exactly, or by searching compound names and descriptions.
@@ -215,7 +217,8 @@ Templates draw their ingredients from **23 slot types**. The specialized ones fi
 - `rice_type` → 7 rice options (jasmine, basmati, arborio, sticky...)
 - `broth` → 8 stock/broth options (dashi, bone broth, coconut broth...)
 - `cooking_sauce` → 16 sauces (marinara, pesto, alfredo, curry paste...)
-- `dressing` → 21 condiment dressings (gochujang, harissa, miso...)
+- `dressing` → 27 condiment dressings (gochujang, harissa, miso, yogurt, sour cream...)
+- `cheese` → 20 cheeses (parmesan, feta, gruyere...), plus nutritional yeast so a vegan still gets a pizza
 
 ## The database
 

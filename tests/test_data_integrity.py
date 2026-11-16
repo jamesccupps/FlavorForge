@@ -331,6 +331,15 @@ def test_the_readme_prose_figures_match_the_data(engine, ffmod):
 
     assert f"**{len(ffmod.SLOT_CAT_MAP)} slot types**" in readme
 
+    # The subtype sizes, stated twice. "21 dressings" went stale in 3.3.1 when
+    # the creamy condiments moved into the dressing slot.
+    sizes = {"noodle/pasta types": "GRAIN_NOODLES", "breads": "GRAIN_BREADS",
+             "rices": "GRAIN_RICE", "broths": "BROTH_TYPES",
+             "cooking sauces": "COOKING_SAUCES", "dressings": "DRESSINGS",
+             "cheeses": "CHEESES"}
+    for words, table in sizes.items():
+        assert f"{len(getattr(ffmod, table))} {words}" in readme, words
+
 
 # ─── the module's own claims about itself ──────────────────────────────
 
