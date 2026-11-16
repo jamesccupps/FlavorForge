@@ -36,6 +36,7 @@ import math
 import re
 import random
 import json
+import queue
 import threading
 import urllib.request
 import urllib.error
@@ -3890,6 +3891,12 @@ class FlavorForgeGUI:
         self.setup_styles()
         self.build_ui()
 
+        # Work handed back from the AI Chef's threads. They used to call
+        # root.after directly, which works on the usual threaded Tcl build but
+        # is not something Tkinter promises; a queue the window drains is.
+        self._ui_calls = queue.Queue()
+        self._poll_ui_calls()
+
     def _px(self, n: int) -> int:
         """A design size in 96-DPI pixels, scaled to this display."""
         return int(round(n * self._scale))
@@ -5885,6 +5892,27 @@ class FlavorForgeGUI:
         self.ai_status.config(text="Settings saved!", fg=self.colors["success"])
         self.root.after(3000, lambda: self.ai_status.config(text=""))
 
+    def _call_on_ui(self, fn) -> None:
+        """Run fn on the Tk thread. Safe to call from any thread."""
+        self._ui_calls.put(fn)
+
+    def _run_pending_ui_calls(self) -> None:
+        while True:
+            try:
+                fn = self._ui_calls.get_nowait()
+            except queue.Empty:
+                return
+            try:
+                fn()
+            except Exception:
+                # Reported the way Tk reports a failing callback, and the
+                # queue keeps draining: one bad chunk must not stop the rest.
+                self.root.report_callback_exception(*sys.exc_info())
+
+    def _poll_ui_calls(self) -> None:
+        self._run_pending_ui_calls()
+        self.root.after(50, self._poll_ui_calls)
+
     def _test_ai_connection(self):
         self._save_ai_settings()
         ok, msg = self.ai_chef.test_connection()
@@ -5935,13 +5963,13 @@ class FlavorForgeGUI:
 
         def on_chunk(text):
             if text is None:
-                self.root.after(0, lambda: current() and self.ai_spinner.config(
+                self._call_on_ui(lambda: current() and self.ai_spinner.config(
                     text="✅ Done — hit Save to keep"))
                 return
-            self.root.after(0, lambda t=text: current() and self._append_ai_text(t))
+            self._call_on_ui(lambda t=text: current() and self._append_ai_text(t))
 
         def on_error(msg):
-            self.root.after(0, lambda m=msg: current() and self._show_ai_error(m))
+            self._call_on_ui(lambda m=msg: current() and self._show_ai_error(m))
 
         self.ai_chef.generate(prompt, callback=on_chunk, error_callback=on_error,
                               should_stop=lambda: not current())

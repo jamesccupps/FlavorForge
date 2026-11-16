@@ -63,6 +63,28 @@ def test_the_migration_note_goes_away_once_another_model_is_picked(app, ffmod):
     assert "no longer offered" not in app.ai_model_hint.cget("text")
 
 
+def test_work_from_a_worker_thread_runs_on_the_tk_thread(app, monkeypatch):
+    """The AI Chef's threads called root.after themselves, which Tkinter does
+    not promise to support. They now queue work the window drains -- and a
+    failing call is reported without stopping the ones behind it."""
+    import threading
+    ran_on, reported = [], []
+    monkeypatch.setattr(app.root, "report_callback_exception",
+                        lambda *exc: reported.append(exc[0]))
+
+    def worker():
+        app._call_on_ui(lambda: 1 / 0)
+        app._call_on_ui(lambda: ran_on.append(threading.current_thread()))
+
+    t = threading.Thread(target=worker)
+    t.start()
+    t.join()
+    assert ran_on == [], "nothing may run on the worker thread"
+    app._run_pending_ui_calls()
+    assert ran_on == [threading.main_thread()]
+    assert reported == [ZeroDivisionError]
+
+
 def test_a_newer_ai_generation_owns_the_pane(app, monkeypatch):
     """Two generations in flight used to append into the same pane and the
     same saved text, so "Save AI Recipe" could write two recipes spliced
@@ -81,7 +103,7 @@ def test_a_newer_ai_generation_owns_the_pane(app, monkeypatch):
     new_cb("FRESH")
     old_err("stale failure")
     old_cb(None)
-    app.root.update()
+    app._run_pending_ui_calls()
 
     assert app.ai_response_text == "FRESH"
     assert "STALE" not in app.ai_output.get("1.0", "end")
