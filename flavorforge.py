@@ -5302,11 +5302,16 @@ class FlavorForgeGUI:
         try:
             with open(self._pantry_path(), "r", encoding="utf-8-sig") as f:
                 data = json.load(f)
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        except (OSError, ValueError):
             return
-        if isinstance(data, dict):
-            self.pantry = {RENAMED_INGREDIENTS.get(n, n)
-                           for n in data.get("pantry", []) if isinstance(n, str)}
+        items = data.get("pantry") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            return                      # {"pantry": 5} used to stop start-up
+        # Renamed keys are carried forward; names that no longer exist at all
+        # are dropped. They were kept, and counted in "N ingredients", while
+        # no checkbox could show or clear them.
+        keys = (RENAMED_INGREDIENTS.get(n, n) for n in items if isinstance(n, str))
+        self.pantry = {k for k in keys if k in INGREDIENTS}
 
     def _save_pantry(self) -> bool:
         return _write_json_atomic(self._pantry_path(), {"pantry": sorted(self.pantry)})

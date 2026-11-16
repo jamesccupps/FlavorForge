@@ -167,6 +167,22 @@ def test_a_pantry_saved_with_a_merged_key_keeps_the_item(ffmod, tmp_path):
     assert fake.pantry == {"green_beans", "red_wine", "salt"}
 
 
+@pytest.mark.parametrize("body,expected", [
+    ({"pantry": ["salt", "unobtainium", "green_bean", 7]}, {"salt", "green_beans"}),
+    ({"pantry": 5}, set()),          # used to raise TypeError at start-up
+    ({"pantry": "salt"}, set()),
+    ([1, 2], set()),
+])
+def test_a_pantry_keeps_only_real_ingredients(ffmod, tmp_path, body, expected):
+    """Names that no longer exist were kept and counted while no checkbox
+    could show or clear them; a non-list pantry stopped the window opening."""
+    p = tmp_path / "pantry.json"
+    p.write_text(json.dumps(body), encoding="utf-8")
+    fake = type("G", (), {"_pantry_path": lambda self: str(p)})()
+    ffmod.FlavorForgeGUI._load_pantry(fake)
+    assert fake.pantry == expected
+
+
 def test_saved_recipes_that_are_not_objects_are_skipped(ffmod, tmp_path):
     """The list is checked to be a list; its items were not, and the Recipe
     tab calls .get on each while it is being built, so [1, 2] stopped the
