@@ -14,7 +14,10 @@ keywords = ["cooking", "recipes", "flavor-pairing", "food-science", "tkinter"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Chemistry",
+    "Environment :: Win32 (MS Windows)",
     "Environment :: X11 Applications",
+    "Environment :: MacOS X",
+    "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
 ]
 # No runtime dependencies, deliberately. FlavorForge is one file you can run
