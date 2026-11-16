@@ -3506,6 +3506,9 @@ CLAUDE_MODEL_SUCCESSORS = {
 # nothing in latency, and only tokens actually generated are billed.
 CLAUDE_MAX_TOKENS = 64000
 
+# Seconds per read on the Ollama stream; the first read includes model load.
+OLLAMA_TIMEOUT = 120
+
 
 def _write_json_atomic(path: str, data, secret: bool = False) -> bool:
     """Write JSON via a temp file and an atomic replace. Never raises.
@@ -3647,7 +3650,7 @@ class AIChef:
             req = urllib.request.Request(url, data=payload,
                                          headers={"Content-Type": "application/json"})
             finished = None
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT) as resp:
                 for line in resp:
                     if should_stop and should_stop():
                         return
@@ -3698,8 +3701,17 @@ class AIChef:
             if error_callback:
                 error_callback(f"Ollama HTTP {e.code}: {str(detail)[:300]}")
         except Exception as e:
+            # The timeout is per read, and Ollama's first read waits for the
+            # model to load: a 14 GB model from a slow disk can take longer
+            # than that, and "timed out" alone reads like a dead server. A
+            # connect timeout arrives wrapped in URLError, a read timeout bare.
+            if isinstance(getattr(e, "reason", e), TimeoutError):
+                msg = (f"Ollama did not answer within {OLLAMA_TIMEOUT} seconds. "
+                       f"The model may still be loading; try again in a moment.")
+            else:
+                msg = str(e)
             if error_callback:
-                error_callback(str(e))
+                error_callback(msg)
 
     def _anthropic_generate(self, prompt, callback, error_callback, should_stop=None):
         """Stream a completion from the Claude API over the raw HTTP endpoint.

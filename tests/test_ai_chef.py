@@ -45,8 +45,9 @@ def _text_stream(chunks, stop_reason="end_turn"):
 class _StubAPI:
     """A one-connection HTTP server standing in for api.anthropic.com."""
 
-    def __init__(self, body=b"", status=200, content_type="text/event-stream"):
+    def __init__(self, body=b"", status=200, content_type="text/event-stream", delay=0.0):
         self.body, self.status, self.content_type = body, status, content_type
+        self.delay = delay
         self.requests = []
         outer = self
 
@@ -58,6 +59,9 @@ class _StubAPI:
                     "headers": dict(self.headers),
                     "body": json.loads(self.rfile.read(n) or b"{}"),
                 })
+                if outer.delay:
+                    import time
+                    time.sleep(outer.delay)
                 self.send_response(outer.status)
                 self.send_header("Content-Type", outer.content_type)
                 self.end_headers()
@@ -407,6 +411,17 @@ def test_an_ollama_http_error_carries_its_explanation(chef, stub):
              content_type="application/json")
     _, errors, done = _run_ollama(chef, s)
     assert errors and "try pulling it first" in errors[0]
+    assert done == []
+
+
+def test_an_ollama_timeout_says_the_model_may_still_be_loading(ffmod, chef, stub, monkeypatch):
+    """The first read waits for the model to load, which can outlast the
+    timeout. A bare "timed out" read like a dead server."""
+    monkeypatch.setattr(ffmod, "OLLAMA_TIMEOUT", 0.5)
+    s = stub(body=_ndjson({"response": "x", "done": True}),
+             content_type="application/x-ndjson", delay=2.0)
+    _, errors, done = _run_ollama(chef, s)
+    assert errors and "may still be loading" in errors[0], errors
     assert done == []
 
 
