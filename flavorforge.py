@@ -3869,6 +3869,7 @@ class FlavorForgeGUI:
         self.selected_ingredient = None
         self.graph_nodes = {}
         self.graph_layout_dirty = True
+        self._graph_redraw_job = None
         self.current_recipe = None  # Store last generated recipe for AI
         self.pantry = set()  # Ingredients the user has on hand
         self._load_pantry()
@@ -4143,7 +4144,7 @@ class FlavorForgeGUI:
                                 orient=tk.HORIZONTAL, variable=self.graph_threshold,
                                 bg=self.colors["panel"], fg=self.colors["text"],
                                 highlightthickness=0, troughcolor=self.colors["accent"],
-                                length=200, command=lambda v: self.draw_graph())
+                                length=200, command=lambda v: self._schedule_graph_redraw())
         thresh_scale.pack(side=tk.LEFT, padx=5)
 
         tk.Label(controls, text="Category:", font=("Consolas", 10),
@@ -4166,13 +4167,28 @@ class FlavorForgeGUI:
 
         self.graph_canvas = tk.Canvas(self.tab_graph, bg="#0d1117", highlightthickness=0)
         self.graph_canvas.pack(fill=tk.BOTH, expand=True)
-        self.graph_canvas.bind("<Configure>", lambda e: self.draw_graph())
+        self.graph_canvas.bind("<Configure>", self._schedule_graph_redraw)
         self.graph_canvas.bind("<Button-1>", self._on_graph_click)
         self.graph_tooltip = None
 
     def _node_radius(self, ing) -> float:
         """Bigger for ingredients with more compounds, scaled to the display."""
         return (5 + len(ing.compounds) * 1.2) * self._scale
+
+    def _schedule_graph_redraw(self, *_):
+        """Redraw once, 100 ms after the last resize step or slider move.
+
+        Each <Configure> during a window drag, and each step of the threshold
+        slider, used to redraw at once: every edge deleted and recreated, which
+        at the slider's minimum (0.10) is 15,391 canvas lines per step.
+        """
+        if self._graph_redraw_job is not None:
+            self.root.after_cancel(self._graph_redraw_job)
+        self._graph_redraw_job = self.root.after(100, self._run_graph_redraw)
+
+    def _run_graph_redraw(self):
+        self._graph_redraw_job = None
+        self.draw_graph()
 
     def invalidate_graph(self):
         self.graph_layout_dirty = True

@@ -179,6 +179,30 @@ def test_a_hand_edited_saved_recipe_without_novelty_still_opens(app):
     assert "Plain Toast" in app.recipe_output.get("1.0", "end")
 
 
+# ─── Debouncing ────────────────────────────────────────────────────────
+
+def _settle(app, ms=300):
+    import time
+    end = time.monotonic() + ms / 1000
+    while time.monotonic() < end:
+        app.root.update()
+        time.sleep(0.01)
+
+
+def test_a_burst_of_resizes_and_slider_moves_redraws_the_graph_once(app, monkeypatch):
+    """Each step used to redraw immediately: up to 15,391 canvas lines
+    deleted and recreated per step at the slider's minimum."""
+    calls = []
+    monkeypatch.setattr(app, "draw_graph", lambda: calls.append(1))
+    _settle(app)
+    calls.clear()
+    for _ in range(25):
+        app._schedule_graph_redraw()
+    assert calls == [], "nothing should draw mid-burst"
+    _settle(app)
+    assert calls == [1]
+
+
 # ─── Pantry ────────────────────────────────────────────────────────────
 
 def test_the_mouse_wheel_is_not_captured_app_wide(app):
