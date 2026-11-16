@@ -22,8 +22,8 @@ jobs:
 
     steps:
       # Pinned by commit SHA, not tag: tags are mutable. The trailing comment
-      # says which version each SHA is. Nothing bumps these automatically --
-      # there is no Dependabot config -- so they are updated by hand.
+      # says which version each SHA is; Dependabot (.github/dependabot.yml)
+      # bumps both together, monthly.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
 
       - name: Set up Python ${{ matrix.python-version }}

@@ -1,0 +1,14 @@
+# Actions are pinned by commit SHA (tags are mutable). A pinned SHA goes stale
+# silently, so Dependabot is what keeps them current -- it understands the
+# `# v5` comment convention and updates the SHA and the comment together.
+#
+# FlavorForge itself is deliberately dependency-free, so there is nothing
+# else for it to watch.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "CI"
