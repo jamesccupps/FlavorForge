@@ -56,9 +56,9 @@ Check off what's in your fridge and cupboard. "What Can I Make?" finds recipes u
 ### Diet filter
 Pick omnivore, pescatarian, vegetarian or vegan on the Recipe tab, or pass `--diet` on the CLI. Two independent filters run: the ingredient pool is narrowed, and templates whose *method* assumes something the diet forbids are dropped entirely.
 
-A diet is a constraint, not a preference. Ask for a vegan recipe built around bacon, or a vegan Sauce & Dip (every dip template assumes dairy or egg), and you get told so — not a recipe that quietly ignores the diet.
+A diet is a constraint, not a preference. Ask for a vegan recipe built around bacon, or a dish type with no template the diet allows, and you get told so — not a recipe that quietly ignores the diet.
 
-That second filter matters. Twenty-eight of the 102 templates name an animal product in prose no slot holds — "finish with cream", "top with a fried egg" — so without it a vegan recipe could instruct you to add parmesan. A chowder without cream is not a chowder, so the honest answer is that it is not vegan and it is not offered.
+That second filter matters. Twenty-nine of the 102 templates name an animal product in prose no slot holds — "finish with cream", "set with gelatin" — so without it a vegan recipe could instruct you to add parmesan. A chowder without cream is not a chowder, so the honest answer is that it is not vegan and it is not offered.
 
 Classification is per ingredient, because the category cannot carry it: chicken stock is a "sauce", fish sauce and Worcestershire are "fermented", coconut milk is filed under "dairy" because it behaves like cream in a pan, egg noodles contain egg, and mayonnaise is egg rather than milk.
 

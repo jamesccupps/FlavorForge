@@ -2187,7 +2187,7 @@ DISH_TEMPLATES = [
     {"name": "{fruit} and {spice} Chutney",
      "dish_type": "Sauce & Dip",
      "structure": {"fruit": 1, "spice": 1},
-     "technique": "Dice {fruit}, simmer with {spice}, vinegar, sugar, onion until jammy. Cool. Serve with cheese, meat, or flatbread.",
+     "technique": "Dice {fruit}, simmer with {spice}, vinegar, sugar, onion until jammy. Cool. Serve as a relish with flatbread.",
      "needs": ["fruit"]},
 ]
 
@@ -2358,15 +2358,22 @@ DIETS = list(DIET_FORBIDS)
 #
 # Scanned from the prose rather than hand-tagged, so a template edited later
 # cannot quietly slip through.
+# Gelatin, custard, béchamel and pad thai sauce were missing until 3.3.1, so
+# a vegetarian could be offered a panna cotta set with gelatin and a vegan a
+# custard tart. A word that implies two things (custard: egg and milk) is
+# listed under both.
 _METHOD_MARKERS = {
     "meat": ("bacon", "pancetta", "chorizo", "prosciutto", "lard", "duck fat",
-             "chicken stock", "beef stock", "bone broth", "chicken broth"),
+             "chicken stock", "beef stock", "bone broth", "chicken broth",
+             "gelatin", "gelatine"),
     "fish": ("anchovy", "anchovies", "fish sauce", "dashi", "bonito",
-             "oyster sauce", "shrimp paste"),
+             "oyster sauce", "shrimp paste",
+             "pad thai sauce"),          # fish sauce, in nearly every recipe
     "dairy": ("parmesan", "pecorino", "mozzarella", "feta", "butter", "cream",
               "milk", "yogurt", "yoghurt", "buttermilk", "ghee", "cheese",
-              "creme fraiche", "mascarpone", "ricotta"),
-    "egg": ("egg", "eggs", "mayo", "mayonnaise", "aioli"),
+              "creme fraiche", "mascarpone", "ricotta",
+              "custard", "béchamel", "bechamel"),
+    "egg": ("egg", "eggs", "mayo", "mayonnaise", "aioli", "custard"),
     "honey": ("honey",),
 }
 
@@ -2380,12 +2387,18 @@ _NOT_DAIRY_PHRASES = ("coconut milk", "oat milk", "almond milk", "soy milk",
                       # whenever a {nut} slot is filled with it, and the two
                       # are easy to confuse when reading this later.
                       "peanut butter", "almond butter", "cashew butter",
-                      "nut butter", "sunflower butter")
+                      "nut butter", "sunflower butter",
+                      # The machine, not the dessert: the sorbet was being
+                      # withheld from vegans for the name of its equipment.
+                      "ice cream maker")
 
 
 def method_diet_tags(template: dict) -> set:
     """What a template's instructions assume, ignoring its slots."""
-    text = re.sub(r"\{[a-z_]+\}", " ", template.get("technique", "")).lower()
+    # "{nut} butter" is a nut butter. Blanking the slot first left the bare
+    # word "butter", which marked the roasted vegetable and nut dip as dairy.
+    text = re.sub(r"\{nut\}\s+butter", "nut butter", template.get("technique", ""))
+    text = re.sub(r"\{[a-z_]+\}", " ", text).lower()
     for phrase in _NOT_DAIRY_PHRASES:
         text = text.replace(phrase, " ")
     found = set()

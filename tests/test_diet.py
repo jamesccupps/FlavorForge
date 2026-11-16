@@ -24,17 +24,24 @@ ANIMAL_WORDS = {
     "bacon": "meat", "prosciutto": "meat", "pancetta": "meat", "lard": "meat",
     "anchovy": "fish", "anchovies": "fish", "fish sauce": "fish", "dashi": "fish",
     "honey": "honey",
+    # Missed by the app's own list until 3.3.1.
+    "gelatin": "meat", "custard": "egg", "béchamel": "dairy", "pad thai sauce": "fish",
 }
 # Phrases containing an animal word that are not animal products. Stripped
 # before the scan — "peanut butter" is not butter, and a {nut} slot puts it
 # into the rendered method regularly.
 NOT_ANIMAL = ("coconut milk", "oat milk", "almond milk", "soy milk",
               "cashew milk", "coconut cream", "cashew cream", "coconut yogurt",
-              "peanut butter", "almond butter", "cashew butter", "nut butter")
+              "peanut butter", "almond butter", "cashew butter", "nut butter",
+              "ice cream maker")
 
 
 def _method_violations(text, diet, ffmod):
-    for phrase in NOT_ANIMAL:
+    # Any nut's name before "butter" is a nut butter: "{nut} butter" renders
+    # as "pistachio butter", "macadamia butter" and so on.
+    nut_butters = tuple(f"{i.name.lower()} butter" for i in ffmod.INGREDIENTS.values()
+                        if i.category == "nut")
+    for phrase in NOT_ANIMAL + nut_butters:
         text = text.replace(phrase, " ")
     forbidden = ffmod.DIET_FORBIDS[diet]
     return [w for w, tag in ANIMAL_WORDS.items()
@@ -183,6 +190,34 @@ def test_a_real_dairy_mention_is_still_caught(ffmod):
     assert ffmod.method_diet_tags(fake) == {"meat", "fish"}
 
 
+def _template(ffmod, fragment):
+    matches = [t for t in ffmod.DISH_TEMPLATES if fragment in t["name"]]
+    assert len(matches) == 1, f"{fragment!r} matches {len(matches)} templates"
+    return matches[0]
+
+
+# One row per template an outside review found misread in 3.3.0. The first
+# four were missed, so a chosen diet was broken; the last three were caught
+# for words that are not animal products, so vegans lost dishes that are vegan.
+@pytest.mark.parametrize("fragment,expected", [
+    ("Panna Cotta", {"dairy", "meat"}),            # cream; set with gelatin
+    ("Tart with {spice} Custard", {"dairy", "egg"}),
+    ("{cheese} Gratin", {"dairy"}),                # {cheese} béchamel
+    ("Pad Thai", {"fish"}),                        # pad thai sauce
+    ("Sorbet", set()),                             # "ice cream maker"
+    ("{nut} Dip", set()),                          # "{nut} butter"
+    ("Chutney", set()),                            # was "serve with cheese, meat"
+])
+def test_the_method_scan_reads_these_templates_correctly(ffmod, fragment, expected):
+    assert ffmod.method_diet_tags(_template(ffmod, fragment)) == expected
+
+
+def test_a_herb_butter_would_still_be_dairy(ffmod):
+    """Only a {nut} slot makes "butter" a nut butter."""
+    fake = {"technique": "Finish with {herb} butter.", "name": "x"}
+    assert ffmod.method_diet_tags(fake) == {"dairy"}
+
+
 def test_every_diet_still_has_templates(ffmod):
     for d in ffmod.DIETS:
         n = sum(1 for t in ffmod.DISH_TEMPLATES if ffmod.template_allows(t, d))
@@ -263,14 +298,17 @@ def test_every_dish_type_either_honours_the_diet_or_says_it_cannot(engine, ffmod
                 assert "error" in r and dish in r["error"], (dish, r)
 
 
-def test_the_no_template_path_is_actually_exercised(ffmod):
-    """Guard on the guard: if every dish type gained a template for every
-    diet, the sweep above would only test one branch. Today a vegan Sauce &
-    Dip is impossible — every dip template assumes dairy or egg."""
-    impossible = [(dish, diet) for dish in ffmod.DISH_TYPES[1:]
-                  for diet in ("pescatarian", "vegetarian", "vegan")
-                  if not _viable(ffmod, dish, diet)]
-    assert impossible, "no dish/diet pair is impossible; drop this guard"
+def test_a_dish_type_the_diet_rules_out_entirely_is_refused(engine, ffmod, monkeypatch):
+    """The refusal path, tested directly. The sweep above can only reach it
+    when the data happens to contain an impossible pair, and since 3.3.1 it
+    may not: the vegan Sauce & Dip that 3.3.0 refused was refused for three
+    false matches (a nut butter, an ice cream maker, a serving suggestion)."""
+    creamy = {"name": "{vegetable} Cream Dip", "dish_type": "Sauce & Dip",
+              "structure": {"vegetable": 1},
+              "technique": "Blend {vegetable} with cream.", "needs": ["vegetable"]}
+    monkeypatch.setattr(ffmod, "DISH_TEMPLATES", [creamy])
+    r = engine.generate_recipe(dish_type="Sauce & Dip", diet="vegan")
+    assert "error" in r and "Sauce & Dip" in r["error"] and "vegan" in r["error"]
 
 
 def test_cli_refuses_a_seed_the_diet_forbids(cli):
