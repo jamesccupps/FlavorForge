@@ -2332,6 +2332,11 @@ DIET_TAGS = {
     "coconut_yogurt": set(),
 
     "halloumi": {"dairy"}, "paneer": {"dairy"},
+
+    # The plant proteins, tagged so the "protein" fallback below can assume
+    # meat: anything new filed under protein without a line here is then
+    # excluded from meat-free diets until someone classifies it.
+    "tofu": set(), "tempeh": set(), "seitan": set(), "jackfruit": set(),
     "ghee": {"dairy"}, "duck_fat": {"meat"},
 
     # --- honey: vegetarian, not vegan ---
@@ -2469,9 +2474,12 @@ def diet_tags(name: str) -> set:
     ing = INGREDIENTS.get(name)
     if ing is None:
         return set()
-    # tofu, tempeh and seitan are category "protein" and are plants; every
-    # other protein in the table above is tagged explicitly, so anything
-    # reaching here from those categories is new and unclassified.
+    # Every protein, seafood and dairy item in the table above is tagged
+    # explicitly, plants included, so anything reaching here from those
+    # categories is new and unclassified -- and fails safe. Through 3.3.0 the
+    # protein case was missing, so a new meat defaulted to vegan.
+    if ing.category == "protein":
+        return {"meat"}
     if ing.category == "seafood":
         return {"fish"}
     if ing.category == "dairy":

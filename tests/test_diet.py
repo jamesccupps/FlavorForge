@@ -112,11 +112,25 @@ def test_every_dairy_is_excluded_from_vegan_unless_it_is_a_plant(ffmod):
             assert ffmod.diet_allows(n, "vegan") is (n in plants), n
 
 
-def test_an_unclassified_ingredient_is_not_assumed_vegan(ffmod):
-    """The fallback must fail safe. A new seafood or dairy entry added without
-    a DIET_TAGS line should still be excluded, not silently permitted."""
-    assert ffmod.diet_tags("squid") == {"fish"}
-    assert "dairy" in ffmod.diet_tags("brie")
+@pytest.mark.parametrize("category,expected", [
+    ("protein", {"meat"}), ("seafood", {"fish"}), ("dairy", {"dairy"})])
+def test_an_unclassified_ingredient_is_not_assumed_vegan(ffmod, monkeypatch,
+                                                         category, expected):
+    """The fallback must fail safe. This test used squid and brie, which
+    have DIET_TAGS lines of their own, so it never reached the fallback --
+    and the fallback had no protein case, so a new meat defaulted to vegan.
+    An outside review spotted the gap."""
+    new = ffmod.Ingredient("venison", category, {"hexanal"}, ["roast"], "lean, gamey")
+    monkeypatch.setitem(ffmod.INGREDIENTS, "unclassified_x", new)
+    assert "unclassified_x" not in ffmod.DIET_TAGS
+    assert ffmod.diet_tags("unclassified_x") == expected
+
+
+def test_every_protein_is_classified_explicitly(ffmod):
+    """So the fallback above is only ever a backstop for new entries."""
+    for name, ing in ffmod.INGREDIENTS.items():
+        if ing.category in ("protein", "seafood"):
+            assert name in ffmod.DIET_TAGS, f"{name} relies on the category fallback"
 
 
 def test_ambiguous_ingredients_are_flagged_not_guessed(ffmod):
