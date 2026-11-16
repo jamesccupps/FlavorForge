@@ -3,8 +3,9 @@
 ## [3.3.1] — 2026-11-16
 
 Fixes from an outside review of 3.3.0, each verified against the code before
-it was changed and landed as its own commit with a test that fails on 3.3.0.
-Most of it is the diet feature, because a diet label is a promise.
+it was changed and landed as its own commit; every behavior fix comes with a
+test that fails on 3.3.0. Most of it is the diet feature, because a diet
+label is a promise.
 
 ### Fixed
 
