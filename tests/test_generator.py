@@ -38,6 +38,33 @@ def test_no_placeholder_survives_for_any_dish_type(engine, ffmod):
             assert "{" not in r["name"] and "{" not in r["technique"], (dish, r["name"])
 
 
+def test_no_rendered_recipe_doubles_a_word(engine, ffmod):
+    """Ingredient names can end in the word a template puts after them:
+    "Blend with {nut} butter" read "peanut butter butter", "roasted
+    {vegetable}" read "roasted roasted red pepper", "{fermented} sauce" read
+    "soy sauce sauce", "{dressing} Dressing" read "Ranch Dressing Dressing".
+    Every template, every candidate of every slot, name and method."""
+    import re
+    for t in ffmod.DISH_TEMPLATES:
+        for slot in t["structure"]:
+            for name in ffmod.get_slot_candidates(slot):
+                for field, title in (("name", True), ("technique", False)):
+                    text = ffmod.fill_template(t[field], {slot: name}, title=title)
+                    # Leave the other slots as distinct tokens.
+                    text = re.sub(r"\{([a-z_]+)\}", lambda m: "<" + m.group(1) + ">", text)
+                    doubled = re.search(r"\b([a-z]+) \1\b", text, re.IGNORECASE)
+                    assert not doubled, f"{t['name']} with {name}: {doubled.group(0)!r}"
+
+
+def test_no_template_doubles_a_word_by_itself(ffmod):
+    """fill_template collapses a doubled word, which is only safe while no
+    template's own text contains one on purpose."""
+    import re
+    for t in ffmod.DISH_TEMPLATES:
+        for field in ("name", "technique"):
+            assert not re.search(r"\b(\w+) \1\b", t[field], re.IGNORECASE), t["name"]
+
+
 @pytest.mark.parametrize("diet", ["pescatarian", "vegetarian", "vegan"])
 def test_no_placeholder_survives_under_a_diet(engine, ffmod, diet):
     """A diet can empty an optional slot -- the vegan {cheese} slot holds one

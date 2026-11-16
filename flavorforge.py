@@ -2201,7 +2201,7 @@ DISH_TEMPLATES = [
     {"name": "Roasted {vegetable} and {nut} Dip with {spice}",
      "dish_type": "Sauce & Dip",
      "structure": {"vegetable": 1, "nut": 1, "spice": 1},
-     "technique": "Roast {vegetable} until soft. Blend with {nut} butter, {spice}, lemon, garlic. Drizzle oil, serve with flatbread.",
+     "technique": "Roast {vegetable} until soft. Blend with {nut}, {spice}, lemon, garlic. Drizzle oil, serve with flatbread.",
      "needs": ["vegetable", "nut"]},
     {"name": "{herb} and {nut} Pesto",
      "dish_type": "Sauce & Dip",
@@ -2425,10 +2425,7 @@ _NOT_DAIRY_PHRASES = ("coconut milk", "oat milk", "almond milk", "soy milk",
 
 def method_diet_tags(template: dict) -> set:
     """What a template's instructions assume, ignoring its slots."""
-    # "{nut} butter" is a nut butter. Blanking the slot first left the bare
-    # word "butter", which marked the roasted vegetable and nut dip as dairy.
-    text = re.sub(r"\{nut\}\s+butter", "nut butter", template.get("technique", ""))
-    text = re.sub(r"\{[a-z_]+\}", " ", text).lower()
+    text = re.sub(r"\{[a-z_]+\}", " ", template.get("technique", "")).lower()
     for phrase in _NOT_DAIRY_PHRASES:
         text = text.replace(phrase, " ")
     found = set()
@@ -2458,6 +2455,25 @@ def method_verify_terms(template: dict) -> set:
         text = text.replace(phrase, " ")
     return {w for w in _METHOD_VERIFY
             if re.search(r"\b" + re.escape(w) + r"\b", text)}
+
+
+def fill_template(text: str, chosen: dict, title: bool = False) -> str:
+    """A template's name or method with every {slot} replaced by its ingredient.
+
+    A word doubled across the join is collapsed. Ingredient names can end in
+    the word a template puts after them: "Blend with {nut} butter" read
+    "peanut butter butter", "roasted {vegetable}" read "roasted roasted red
+    pepper", "{fermented} sauce" read "soy sauce sauce" -- all through 3.3.0.
+    No template's own text contains a doubled word (a test holds that), so
+    collapsing one can only remove what the substitution created.
+
+    This was copied into four places, each with an alias table no template
+    used; it is now the one rendering.
+    """
+    for slot, key in chosen.items():
+        name = INGREDIENTS[key].name if key in INGREDIENTS else key
+        text = text.replace("{%s}" % slot, name.title() if title else name)
+    return re.sub(r"\b(\w+) \1\b", r"\1", text, flags=re.IGNORECASE)
 
 
 def template_allows(template: dict, diet: str) -> bool:
@@ -2995,23 +3011,8 @@ class FlavorEngine:
             return {"error": "Could not generate recipe"}
 
         recipe = best_recipe
-        slot_display = {}
-        for slot, ing_name in recipe["ingredients"].items():
-            display = self.ingredients[ing_name].name if ing_name in self.ingredients else ing_name
-            slot_display[slot] = display
-
-        aliases = {"veg": "vegetable", "cheese": "dairy"}
-
-        name = recipe["template"]["name"]
-        technique = recipe["template"]["technique"]
-
-        for slot, display in slot_display.items():
-            name = name.replace(f"{{{slot}}}", display.title())
-            technique = technique.replace(f"{{{slot}}}", display)
-        for alias, real_slot in aliases.items():
-            if real_slot in slot_display:
-                name = name.replace(f"{{{alias}}}", slot_display[real_slot].title())
-                technique = technique.replace(f"{{{alias}}}", slot_display[real_slot])
+        name = fill_template(recipe["template"]["name"], recipe["ingredients"], title=True)
+        technique = fill_template(recipe["template"]["technique"], recipe["ingredients"])
 
         connections = []
         ings = recipe["all_ingredients"]
@@ -3303,22 +3304,8 @@ class FlavorEngine:
         # Build full recipe objects for top results
         final = []
         for r in unique_results[:top_n]:
-            slot_display = {}
-            for slot, ing_name in r["ingredients"].items():
-                display = self.ingredients[ing_name].name if ing_name in self.ingredients else ing_name
-                slot_display[slot] = display
-
-            aliases = {"veg": "vegetable", "cheese": "dairy"}
-            name = r["template"]["name"]
-            technique = r["template"]["technique"]
-
-            for slot, display in slot_display.items():
-                name = name.replace(f"{{{slot}}}", display.title())
-                technique = technique.replace(f"{{{slot}}}", display)
-            for alias, real_slot in aliases.items():
-                if real_slot in slot_display:
-                    name = name.replace(f"{{{alias}}}", slot_display[real_slot].title())
-                    technique = technique.replace(f"{{{alias}}}", slot_display[real_slot])
+            name = fill_template(r["template"]["name"], r["ingredients"], title=True)
+            technique = fill_template(r["template"]["technique"], r["ingredients"])
 
             # Build connections list
             connections = []
@@ -3421,22 +3408,8 @@ class FlavorEngine:
         # Build display objects
         final = []
         for r in unique[:top_n]:
-            slot_display = {}
-            for slot, ing_name in r["ingredients"].items():
-                display = self.ingredients[ing_name].name if ing_name in self.ingredients else ing_name
-                slot_display[slot] = display
-
-            aliases = {"veg": "vegetable", "cheese": "dairy"}
-            name = r["template"]["name"]
-            technique = r["template"]["technique"]
-
-            for slot, display in slot_display.items():
-                name = name.replace(f"{{{slot}}}", display.title())
-                technique = technique.replace(f"{{{slot}}}", display)
-            for alias, real_slot in aliases.items():
-                if real_slot in slot_display:
-                    name = name.replace(f"{{{alias}}}", slot_display[real_slot].title())
-                    technique = technique.replace(f"{{{alias}}}", slot_display[real_slot])
+            name = fill_template(r["template"]["name"], r["ingredients"], title=True)
+            technique = fill_template(r["template"]["technique"], r["ingredients"])
 
             missing_display = self.ingredients[r["missing"]].name if r["missing"] in self.ingredients else r["missing"]
 
@@ -5103,9 +5076,7 @@ class FlavorForgeGUI:
         # Show technique preview if all slots filled
         if filled_slots == total_slots:
             self.build_output.insert(tk.END, "\n  TECHNIQUE\n", "section")
-            technique = template["technique"]
-            for slot, key in chosen.items():
-                technique = technique.replace(f"{{{slot}}}", INGREDIENTS[key].name)
+            technique = fill_template(template["technique"], chosen)
             self.build_output.insert(tk.END, f"    {technique}\n", "technique")
             self.build_output.insert(tk.END,
                 "\n  ✓ All slots filled! Hit 'Build Recipe' or '→ AI Chef'\n", "good")
@@ -5168,18 +5139,8 @@ class FlavorForgeGUI:
 
         template = self.build_current_template
 
-        # Build name
-        slot_display = {s: INGREDIENTS[k].name for s, k in chosen.items() if k in INGREDIENTS}
-        aliases = {"veg": "vegetable", "cheese": "dairy"}
-        name = template["name"]
-        technique = template["technique"]
-        for slot, display in slot_display.items():
-            name = name.replace(f"{{{slot}}}", display.title())
-            technique = technique.replace(f"{{{slot}}}", display)
-        for alias, real_slot in aliases.items():
-            if real_slot in slot_display:
-                name = name.replace(f"{{{alias}}}", slot_display[real_slot].title())
-                technique = technique.replace(f"{{{alias}}}", slot_display[real_slot])
+        name = fill_template(template["name"], chosen, title=True)
+        technique = fill_template(template["technique"], chosen)
 
         # Build connections
         keys = list(chosen.values())

@@ -37,11 +37,7 @@ NOT_ANIMAL = ("coconut milk", "oat milk", "almond milk", "soy milk",
 
 
 def _method_violations(text, diet, ffmod):
-    # Any nut's name before "butter" is a nut butter: "{nut} butter" renders
-    # as "pistachio butter", "macadamia butter" and so on.
-    nut_butters = tuple(f"{i.name.lower()} butter" for i in ffmod.INGREDIENTS.values()
-                        if i.category == "nut")
-    for phrase in NOT_ANIMAL + nut_butters:
+    for phrase in NOT_ANIMAL:
         text = text.replace(phrase, " ")
     forbidden = ffmod.DIET_FORBIDS[diet]
     return [w for w, tag in ANIMAL_WORDS.items()
@@ -219,7 +215,7 @@ def _template(ffmod, fragment):
     ("{cheese} Gratin", {"dairy"}),                # {cheese} béchamel
     ("Pad Thai", {"fish"}),                        # pad thai sauce
     ("Sorbet", set()),                             # "ice cream maker"
-    ("{nut} Dip", set()),                          # "{nut} butter"
+    ("{nut} Dip", set()),                          # was "{nut} butter"
     ("Chutney", set()),                            # was "serve with cheese, meat"
 ])
 def test_the_method_scan_reads_these_templates_correctly(ffmod, fragment, expected):
