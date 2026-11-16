@@ -5879,7 +5879,8 @@ class FlavorForgeGUI:
     def _toggle_key_visibility(self):
         self.ai_key_entry.config(show="" if self.show_key_var.get() else "•")
 
-    def _save_ai_settings(self):
+    def _apply_ai_settings(self):
+        """Use what is in the fields now, without writing it to disk."""
         self.ai_chef.provider = self.ai_provider_var.get()
         if self.ai_chef.provider == "ollama":
             self.ai_chef.ollama_url = self.ai_url_var.get()
@@ -5887,6 +5888,10 @@ class FlavorForgeGUI:
         else:
             self.ai_chef.anthropic_key = self.ai_key_var.get()
             self.ai_chef.anthropic_model = self.ai_model_var.get()
+
+    def _save_ai_settings(self):
+        self._apply_ai_settings()
+        if self.ai_chef.provider != "ollama":
             self.ai_chef.retired_model = ""      # saved: the choice is theirs now
         self.ai_chef.save_config()
         self.ai_status.config(text="Settings saved!", fg=self.colors["success"])
@@ -5914,10 +5919,22 @@ class FlavorForgeGUI:
         self.root.after(50, self._poll_ui_calls)
 
     def _test_ai_connection(self):
-        self._save_ai_settings()
-        ok, msg = self.ai_chef.test_connection()
-        color = self.colors["success"] if ok else "#e74c3c"
-        self.ai_status.config(text=msg, fg=color)
+        """Check what is typed, off the Tk thread, without saving it.
+
+        Through 3.3.0 Test saved the settings first -- so a key typed into
+        the field was written to disk by Test, not only by Save -- and then
+        ran the check on the window's thread, which froze for as long as the
+        host took to answer: up to 5 s for Ollama, 10 s for the Claude API.
+        """
+        self._apply_ai_settings()
+        self.ai_status.config(text="Testing...", fg=self.colors["text_dim"])
+
+        def work():
+            ok, msg = self.ai_chef.test_connection()
+            color = self.colors["success"] if ok else "#e74c3c"
+            self._call_on_ui(lambda: self.ai_status.config(text=msg, fg=color))
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _ai_generate_new(self):
         """Generate a recipe concept and immediately send to AI."""

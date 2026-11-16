@@ -85,6 +85,34 @@ def test_work_from_a_worker_thread_runs_on_the_tk_thread(app, monkeypatch):
     assert reported == [ZeroDivisionError]
 
 
+def test_the_test_button_neither_blocks_nor_saves(app, monkeypatch, tmp_path):
+    """It saved the settings -- including a key only typed, not saved -- and
+    then ran the network check on the window's thread."""
+    import threading
+    release = threading.Event()
+    seen = []
+
+    def slow_test():
+        seen.append((app.ai_chef.provider, app.ai_chef.anthropic_key))
+        release.wait(5)
+        return True, "Key accepted."
+
+    monkeypatch.setattr(app.ai_chef, "test_connection", slow_test)
+    app.ai_provider_var.set("anthropic")
+    app._on_provider_change()
+    app.ai_key_var.set("sk-ant-typed-not-saved")
+    app._test_ai_connection()                    # returns while the check waits
+    assert app.ai_status.cget("text") == "Testing..."
+    assert not (tmp_path / ".flavorforge_config.json").exists(), "Test wrote the key"
+    release.set()
+    for t in threading.enumerate():
+        if t is not threading.main_thread() and t.daemon:
+            t.join(2)
+    app._run_pending_ui_calls()
+    assert app.ai_status.cget("text") == "Key accepted."
+    assert seen == [("anthropic", "sk-ant-typed-not-saved")], "it tested what was typed"
+
+
 def test_a_newer_ai_generation_owns_the_pane(app, monkeypatch):
     """Two generations in flight used to append into the same pane and the
     same saved text, so "Save AI Recipe" could write two recipes spliced

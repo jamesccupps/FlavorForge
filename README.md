@@ -176,7 +176,9 @@ A model saved by an earlier version moves to its successor in the same tier —
 Opus to Opus, Haiku to Haiku — and the AI tab says so beside the dropdown.
 
 **Test** checks the key and the model against the API without spending any
-tokens, so a typo'd key shows up there rather than at Generate.
+tokens, so a typo'd key shows up there rather than at Generate. It checks
+what is in the fields without saving it; **Save** writes the settings to
+disk, and so does generating a recipe.
 
 Responses stream, so the recipe types itself out rather than appearing all at
 once after a wait. If one is ever cut short by the token limit, it says so
