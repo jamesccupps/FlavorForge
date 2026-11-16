@@ -38,6 +38,19 @@ def test_no_placeholder_survives_for_any_dish_type(engine, ffmod):
             assert "{" not in r["name"] and "{" not in r["technique"], (dish, r["name"])
 
 
+@pytest.mark.parametrize("diet", ["pescatarian", "vegetarian", "vegan"])
+def test_no_placeholder_survives_under_a_diet(engine, ffmod, diet):
+    """A diet can empty an optional slot -- the vegan {cheese} slot holds one
+    item -- and an empty slot used to leave its placeholder in the name.
+    Templates with any unfillable slot are now dropped for that diet."""
+    for dish in ffmod.DISH_TYPES:
+        for _ in range(6):
+            r = engine.generate_recipe(dish_type=dish, diet=diet)
+            if "error" in r:
+                continue
+            assert "{" not in r["name"] and "{" not in r["technique"], (dish, diet, r["name"])
+
+
 def test_every_chosen_ingredient_is_real(engine, ffmod):
     for _ in range(80):
         r = engine.generate_recipe()

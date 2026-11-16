@@ -390,11 +390,38 @@ def test_every_ingredient_category_is_reachable(ffmod):
 
 
 def test_only_the_deliberate_exclusions_are_unreachable(ffmod):
-    """flour and cornstarch are held out of the generic grain slot on purpose —
-    get_slot_candidates says so in a comment. Pinned so the exclusion stays
-    deliberate rather than quietly becoming an accident again."""
+    """flour and cornstarch are held out of the generic grain slot on purpose.
+    Since 3.3.1 so are six cooking liquids and fats, which the {cheese} slot
+    used to take ("Gratin with Buttermilk"): they reach a dish through its
+    method and the AI Chef. Pinned so each exclusion stays deliberate rather
+    than quietly becoming an accident again."""
     unreachable = set(ffmod.INGREDIENTS) - _reachable(ffmod)
-    assert unreachable == {"flour", "cornstarch"}, sorted(unreachable)
+    assert unreachable == {"flour", "cornstarch", "butter", "buttermilk", "cream",
+                           "whipped_cream", "coconut_milk", "oat_milk"}, sorted(unreachable)
+
+
+def test_the_cheese_slot_holds_cheese(ffmod):
+    """It took any dairy, so an omnivore could get "Pizza with Buttermilk" and
+    a vegan -- whose only dairy-category items are plant milks -- "Baked Pasta
+    and Oat Milk". An outside review found the vegan half."""
+    candidates = set(ffmod.get_slot_candidates("cheese"))
+    assert candidates == ffmod.CHEESES
+    assert not candidates & {"buttermilk", "oat_milk", "coconut_milk", "cream", "butter"}
+    assert ffmod.get_slot_candidates("cheese", diet="vegan") == ["nutritional_yeast"]
+
+
+def test_the_creamy_condiments_moved_to_the_dressing_slot(ffmod):
+    for name in ("yogurt", "sour_cream", "mayo", "ranch", "coconut_yogurt", "cashew_cream"):
+        assert name in ffmod.get_slot_candidates("dressing"), name
+
+
+def test_every_ingredient_with_peers_has_a_substitute(engine, ffmod):
+    """Narrowing to a subtype must never leave nothing: nutritional yeast is
+    "fermented" and in the cheese set, and those two share only itself."""
+    by_cat = collections.Counter(i.category for i in ffmod.INGREDIENTS.values())
+    for name, ing in ffmod.INGREDIENTS.items():
+        if by_cat[ing.category] > 1:
+            assert engine.substitutes(name, 3), f"no substitutes for {name}"
 
 
 def test_the_fat_slot_reaches_every_oil(ffmod):

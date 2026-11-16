@@ -280,7 +280,7 @@ def test_a_seed_the_diet_forbids_is_refused_not_placed(engine):
 def _viable(ffmod, dish, diet):
     return [t for t in ffmod.DISH_TEMPLATES
             if t["dish_type"] == dish and ffmod.template_allows(t, diet)
-            and all(ffmod.get_slot_candidates(s, diet=diet) for s in t["needs"])]
+            and all(ffmod.get_slot_candidates(s, diet=diet) for s in t["structure"])]
 
 
 @pytest.mark.parametrize("diet", ["pescatarian", "vegetarian", "vegan"])

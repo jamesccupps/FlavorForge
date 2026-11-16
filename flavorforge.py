@@ -1391,6 +1391,29 @@ DRESSINGS = {
     "hot_sauce", "sriracha", "ketchup", "bbq_sauce", "kimchi",
     "rice_vinegar", "apple_cider_vinegar", "sake",
     "aioli", "tzatziki", "tahini_sauce",
+    # Creamy dressing bases, since 3.3.1. They reached recipes only through
+    # the {cheese} slot before, which is where "Pizza with Sour Cream" and
+    # "Ranch Lasagna" came from.
+    "yogurt", "sour_cream", "mayo", "ranch", "coconut_yogurt", "cashew_cream",
+}
+
+# The {cheese} slot. Through 3.3.0 it took anything filed under dairy, so an
+# omnivore could be given "Gratin with buttermilk" and a vegan -- whose only
+# dairy-category items are plant milks and creams -- "Baked Pasta and Oat
+# Milk" or "top with oat milk and bake until bubbly". A slot that means the
+# cheese now holds cheese -- plus nutritional yeast, which the database
+# already describes as "the pyrazines parmesan gets from ageing" and which is
+# the usual plant stand-in, so a vegan still gets a pizza.
+#
+# Butter, cream, buttermilk, whipped cream, coconut milk and oat milk are in
+# no slot at all: they go into dishes through the method ("finish with
+# cream") and the AI Chef, as they always effectively did.
+CHEESES = {
+    "blue_cheese", "brie", "cheddar", "cotija", "cream_cheese", "feta",
+    "goat_cheese", "gruyere", "halloumi", "labneh", "mascarpone",
+    "monterey_jack", "mozzarella", "paneer", "parmesan", "pecorino",
+    "provolone", "ricotta", "swiss",
+    "nutritional_yeast",
 }
 
 # Grains you'd actually serve as a dish component (not flour/cornstarch)
@@ -2246,6 +2269,7 @@ _SLOT_SUBSETS = {
     "broth": BROTH_TYPES,
     "cooking_sauce": COOKING_SAUCES,
     "dressing": DRESSINGS,
+    "cheese": CHEESES,
 }
 
 _SLOT_CANDIDATES: Dict[str, List[str]] = {}
@@ -2781,9 +2805,12 @@ class FlavorEngine:
 
         pool = {n for n, i in self.ingredients.items()
                 if i.category == target.category and n != name}
-        # Narrow to the subtype when the ingredient belongs to one.
+        # Narrow to the subtype when the ingredient belongs to one -- unless
+        # that leaves nothing. Nutritional yeast is filed under "fermented"
+        # and sits in the cheese set, and the intersection of the two is
+        # itself alone; it keeps its category's substitutes instead.
         for slot, members in _SLOT_SUBSETS.items():
-            if name in members:
+            if name in members and pool & set(members):
                 pool &= set(members)
 
         out = []
@@ -2872,11 +2899,14 @@ class FlavorEngine:
         # Applied before the seed filter so that a seed which fits only
         # templates the diet rules out is still placed, as an accent, in one
         # that the diet allows.
+        #
+        # Every slot must be fillable, not only the required ones: an empty
+        # optional slot leaves its "{cheese}" placeholder in the dish's name.
         if diet and DIET_FORBIDS.get(diet):
             templates = [t for t in templates
                          if template_allows(t, diet)
                          and all(get_slot_candidates(slot, diet=diet)
-                                 for slot in t["needs"])]
+                                 for slot in t["structure"])]
             if not templates:
                 kind = dish_type if dish_type and dish_type != "Any" else "recipe"
                 return {"error": f"No {kind} template suits a {diet} diet. "
