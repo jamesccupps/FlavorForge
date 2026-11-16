@@ -167,6 +167,16 @@ def test_a_pantry_saved_with_a_merged_key_keeps_the_item(ffmod, tmp_path):
     assert fake.pantry == {"green_beans", "red_wine", "salt"}
 
 
+def test_saved_recipes_that_are_not_objects_are_skipped(ffmod, tmp_path):
+    """The list is checked to be a list; its items were not, and the Recipe
+    tab calls .get on each while it is being built, so [1, 2] stopped the
+    window opening."""
+    p = tmp_path / "saved.json"
+    p.write_text(json.dumps([1, "x", {"name": "Kept"}, None]), encoding="utf-8")
+    fake = type("G", (), {"_recipes_path": lambda self: str(p)})()
+    assert ffmod.FlavorForgeGUI._load_all_saved(fake) == [{"name": "Kept"}]
+
+
 def test_a_bom_file_is_readable(ffmod, tmp_path):
     """The mechanism itself, rather than only the source text."""
     p = tmp_path / "bom.json"

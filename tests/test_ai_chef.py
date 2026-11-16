@@ -196,6 +196,28 @@ def test_a_current_model_in_a_saved_config_is_left_alone(ffmod, tmp_path, monkey
     assert c.anthropic_model == keep and c.retired_model == ""
 
 
+@pytest.mark.parametrize("body", ["[]", '"x"', "5", "null"])
+def test_a_config_that_is_not_an_object_falls_back_to_defaults(ffmod, tmp_path,
+                                                                monkeypatch, body):
+    """The shape check raised ValueError and the handler caught only its
+    subclasses, so these stopped the window from opening -- it builds an
+    AIChef in its constructor."""
+    (tmp_path / ".flavorforge_config.json").write_text(body, encoding="utf-8")
+    monkeypatch.setattr(ffmod.os.path, "expanduser", lambda p: str(tmp_path))
+    c = ffmod.AIChef()
+    assert c.provider == "ollama" and c.anthropic_key == ""
+
+
+def test_config_values_of_the_wrong_type_are_ignored(ffmod, tmp_path, monkeypatch):
+    (tmp_path / ".flavorforge_config.json").write_text(
+        json.dumps({"provider": 5, "anthropic_key": ["k"], "ollama_model": "llama3"}),
+        encoding="utf-8")
+    monkeypatch.setattr(ffmod.os.path, "expanduser", lambda p: str(tmp_path))
+    c = ffmod.AIChef()
+    assert c.provider == "ollama" and c.anthropic_key == ""
+    assert c.ollama_model == "llama3", "the valid value alongside them still loads"
+
+
 # ─── streaming ─────────────────────────────────────────────────────────
 
 def test_the_request_asks_for_a_stream(ffmod, chef, monkeypatch, stub):

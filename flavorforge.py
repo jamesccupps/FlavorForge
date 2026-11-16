@@ -3482,21 +3482,22 @@ class AIChef:
         try:
             with open(self._config_path(), "r", encoding="utf-8-sig") as f:
                 cfg = json.load(f)
-                if not isinstance(cfg, dict):
-                    raise ValueError("config is not a JSON object")
-                self.ollama_url = cfg.get("ollama_url", self.ollama_url)
-                self.ollama_model = cfg.get("ollama_model", self.ollama_model)
-                self.anthropic_key = cfg.get("anthropic_key", self.anthropic_key)
-                self.anthropic_model = cfg.get("anthropic_model", self.anthropic_model)
-                self.provider = cfg.get("provider", self.provider)
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            if not isinstance(cfg, dict):
+                raise ValueError("config is not a JSON object")
+            # Only string values are taken: the file is hand-editable, and a
+            # number where the key belongs would otherwise reach an HTTP header.
+            for attr in ("ollama_url", "ollama_model", "anthropic_key",
+                         "anthropic_model", "provider"):
+                if isinstance(cfg.get(attr), str):
+                    setattr(self, attr, cfg[attr])
+        except (OSError, ValueError):
             # A missing config is the normal first-run case. An unreadable or
             # malformed one is not a reason to fail to start — the defaults
-            # above are all still in place.
+            # above are all still in place. ValueError, not the narrower
+            # JSONDecodeError and UnicodeDecodeError (both subclasses of it):
+            # through 3.3.0 the shape check's own ValueError was not caught, so
+            # a config of [] or "x" stopped the window from opening.
             pass
-        # A cfg that is not an object would have raised AttributeError on the
-        # first .get above rather than falling through to here, so the shape is
-        # checked before it is used.
 
         # A model id saved by an older version may no longer be offered.
         # Rather than let the first generation fail with a 404 from the API,
@@ -4487,11 +4488,14 @@ class FlavorForgeGUI:
             # BOM that plain utf-8 rejects outright.
             with open(self._recipes_path(), "r", encoding="utf-8-sig") as f:
                 data = json.load(f)
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        except (OSError, ValueError):
             return []
         # A file of the wrong shape would otherwise fail much later, in the
-        # middle of rendering the list.
-        return data if isinstance(data, list) else []
+        # middle of rendering the list -- and the list is rendered while the
+        # Recipe tab is being built, so [1, 2] stopped the window opening.
+        if not isinstance(data, list):
+            return []
+        return [r for r in data if isinstance(r, dict)]
 
     def _save_all(self, recipes: List) -> bool:
         return _write_json_atomic(self._recipes_path(), recipes)
