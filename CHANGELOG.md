@@ -1,5 +1,58 @@
 # Changelog
 
+## [3.3.1] — 2026-11-16
+
+Fixes from an outside review of 3.3.0, each verified against the code before
+it was changed and landed as its own commit with a test that fails on 3.3.0.
+Most of it is the diet feature, because a diet label is a promise.
+
+### Fixed
+
+- **FlavorForge would not start with a damaged settings file.** A config of
+  `[]`, `"x"` or `5` raised the shape check's own `ValueError`, which the
+  handler did not catch. A saved-recipes file of `[1, 2]`, and a pantry of
+  `{"pantry": 5}`, stopped start-up the same way. All three now fall back.
+- **Diet labels read the method, not just the ingredients.** With no diet
+  chosen, 20% of recipes were labelled with a diet their own method rules
+  out: a cream-and-gelatin panna cotta as vegan, a bacon chowder as
+  pescatarian — and the AI Chef was told the same. The label now comes from
+  one function everywhere a recipe is finished, including the pantry
+  searches, which carried no diet at all.
+- **The method word list missed gelatin, custard, béchamel and pad thai
+  sauce**, so a vegetarian could be offered gelatin and a vegan a custard
+  tart. It also caught three vegan dishes for words that are not animal
+  products (an ice cream maker, a nut butter, a serving suggestion), which
+  is why 3.3.0 said no vegan Sauce & Dip existed.
+- **"Check the label" now covers the method too**: wonton and dumpling
+  skins, pastry, pie crust, tart shells, gravy, and an unnamed "stock".
+- **The `{cheese}` slot holds cheese.** It took any dairy, giving "Baked
+  Pasta and Oat Milk" to vegans and "Gratin with Buttermilk" to everyone.
+  Nutritional yeast is the vegan stand-in, so every dish type is still
+  possible on every diet; the creamy condiments moved to the dressing slot.
+- **Doubled words**: "peanut butter butter", "roasted roasted red pepper",
+  "soy sauce sauce". Templates now render in one place, which collapses a
+  word doubled across a join.
+- A saved Almost There recipe could not be opened again (`KeyError`).
+- A new protein without a diet entry defaulted to vegan; it now fails safe,
+  and the test that claimed this was checked now actually reaches the code.
+- **AI Chef**: Test ran on the window's thread (freezing it up to 10 s) and
+  saved a key that had only been typed; it now runs in the background and
+  saves nothing. Worker threads hand results back through a queue instead
+  of calling Tk directly. An Ollama timeout says the model may still be
+  loading.
+- The Flavor Graph redrew up to 15,391 lines per resize step, and the
+  pantry rebuilt 326 checkboxes per keystroke; both now wait for a pause.
+- The pantry kept ingredient names that no longer exist.
+- US spelling in two strings the app shows; stale numbers in comments.
+
+### Notes
+
+- Dependabot keeps the pinned CI actions current, as in PingerPlot and HVAC
+  Network Scanner. The package's classifiers list Windows, macOS, X11 and
+  the console.
+- 293 → 340 tests.
+- The novelty score is unchanged and still a known issue (see 3.3.0).
+
 ## [3.3.0] — 2026-10-07
 
 An audit pass over 3.2: mostly places where the app said one thing and did
