@@ -1,5 +1,62 @@
 # Changelog
 
+## [3.4.0] — 2026-11-20
+
+The first published release since 3.3.0, so it also carries the fixes in
+3.3.1, which was tagged but never published; they are listed in the
+[changelog](https://github.com/jamesccupps/FlavorForge/blob/main/CHANGELOG.md).
+From this release on, a version tag publishes its own release.
+
+### Changed
+
+- **The window opens in half the time.** Tk on Windows searches for a
+  fallback font the first time it draws a glyph its font lacks: 270–430 ms
+  for each emoji, 100–180 ms for the alembic, hourglass and heavy
+  check/cross marks, each measured in a fresh interpreter. Fourteen sat in
+  the header, tabs, buttons and welcome text. They are gone, and the window
+  opens in a median 0.84 s instead of 1.9 s. Tips are bulleted with "•" and
+  "Done" keeps its "✓", both glyphs that cost nothing.
+- **Balance tips treat salt and acid as seasoning.** "No acid to brighten"
+  appeared on 68% of generated recipes and "Consider adding salt" on 51%; a
+  cook adjusts both at the end, and the AI Chef's prompt already asks for
+  salt. What remains is imbalance among the ingredients themselves — salty
+  with no acid, very sweet, heat without fat, bitter without sweet — and no
+  tip now appears on more than a third of recipes.
+
+### Fixed
+
+- "WHY IT WORKS" repeated notes on 18% of lines ("herbal, herbal") and took
+  its three compounds in an arbitrary order. Each note is said once, and the
+  compounds are the rarest shared ones, as on the command line.
+- The command line printed internal keys: "check the label on: bbq_sauce".
+- Three salads chose an oil their method never mentioned.
+- The Flavor Graph kept the layout it computed on first drawing, so
+  shrinking the window drew nodes off the canvas.
+
+### CI and releases
+
+- **A `v*` tag publishes the release.** The workflow tests the tagged
+  source, checks the tag against `__version__`, and creates the GitHub
+  release with that version's CHANGELOG section as its notes. Publishing to
+  PyPI is in the same workflow, off until the `PUBLISH_TO_PYPI` repository
+  variable is set; it uses trusted publishing and needs a one-time setup on
+  pypi.org.
+- **GUI tests are required on every CI leg** instead of skipping when Tk
+  cannot start. That showed what the skips had hidden: on Windows with Tk
+  8.6 (Python 3.10–3.13), a process creating many Tk interpreters sometimes
+  fails to read Tcl's own `init.tcl`, a different test each run. The tests
+  now retry Tk start-up; the app, which creates one interpreter, needed no
+  change.
+- Failed tests become annotations, readable on the run page without signing
+  in to GitHub. A separate step checks that Tk can open a window.
+- Python 3.15 joins the matrix; actions/checkout 7 and actions/setup-python
+  7 (Dependabot #1 and #2).
+- 340 → 359 tests.
+
+### Known issue, not changed
+
+- The novelty score still does not discriminate (see 3.3.0).
+
 ## [3.3.1] — 2026-11-16
 
 Fixes from an outside review of 3.3.0, each verified against the code before
