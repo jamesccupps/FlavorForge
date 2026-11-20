@@ -294,16 +294,16 @@ def test_no_subcommand_without_tkinter_prints_help(ffmod, monkeypatch, capsys):
 
 # ─── the GUI still builds ──────────────────────────────────────────────
 
-def test_the_gui_builds_and_shows_substitutes(ffmod):
+def test_the_gui_builds_and_shows_substitutes(ffmod, no_gui):
     """The one test that constructs the real 2,000-line GUI. It is cheap
     insurance: everything else here works on the engine, so a typo in a Tk
     call would otherwise reach the user before it reached a test."""
     if not ffmod.HAVE_TK:
-        pytest.skip("no tkinter")
+        no_gui("tkinter is not installed")
     try:
         app = ffmod.FlavorForgeGUI()
     except Exception as exc:                       # no display
-        pytest.skip(f"cannot create a Tk root: {exc}")
+        no_gui(f"a Tk root could not be created: {exc}")
     app.root.withdraw()
     try:
         for tab in ("tab_pair", "tab_graph", "tab_recipe", "tab_build",

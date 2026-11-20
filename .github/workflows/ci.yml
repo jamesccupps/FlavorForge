@@ -20,6 +20,11 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
+    # Every leg must actually run the GUI tests: with this set, one that cannot
+    # open a window fails the run instead of skipping (tests/conftest.py).
+    env:
+      FLAVORFORGE_REQUIRE_GUI: "1"
+
     steps:
       # Pinned by commit SHA, not tag: tags are mutable. The trailing comment
       # says which version each SHA is; Dependabot (.github/dependabot.yml)

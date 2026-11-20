@@ -12,15 +12,15 @@ import pytest
 
 
 @pytest.fixture
-def app(ffmod, tmp_path, monkeypatch):
+def app(ffmod, tmp_path, monkeypatch, no_gui):
     if not ffmod.HAVE_TK:
-        pytest.skip("no tkinter")
+        no_gui("tkinter is not installed")
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     try:
         gui = ffmod.FlavorForgeGUI()
     except Exception as exc:                       # no display
-        pytest.skip(f"cannot create a Tk root: {exc}")
+        no_gui(f"a Tk root could not be created: {exc}")
     gui.root.withdraw()
     yield gui
     gui.root.destroy()

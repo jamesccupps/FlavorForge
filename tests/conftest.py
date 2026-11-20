@@ -8,6 +8,7 @@ import and run on a machine with no GUI toolkit at all — which is what makes
 these tests runnable anywhere, and the CLI usable over SSH. The handful of
 tests that need Tk say so individually.
 """
+import os
 import sys
 from pathlib import Path
 
@@ -29,6 +30,22 @@ def engine():
 @pytest.fixture(scope="session")
 def ffmod():
     return ff
+
+
+@pytest.fixture
+def no_gui():
+    """Skip a GUI test where there is no Tk or no display -- or, in CI, fail it.
+
+    CI sets FLAVORFORGE_REQUIRE_GUI=1 on every leg. A GUI test that skips
+    there still lets the run pass: until 3.3 added Xvfb, every Linux leg
+    skipped all of them and the green result said nothing about it. With the
+    variable set, a leg that cannot open a window is red instead.
+    """
+    def _no_gui(reason):
+        if os.environ.get("FLAVORFORGE_REQUIRE_GUI") == "1":
+            pytest.fail(f"GUI tests are required in this run, but {reason}")
+        pytest.skip(reason)
+    return _no_gui
 
 
 @pytest.fixture
