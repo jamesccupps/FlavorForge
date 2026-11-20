@@ -435,6 +435,19 @@ def test_meat_free_diets_have_enough_protein_to_be_useful(ffmod):
 
 # ─── the CLI ───────────────────────────────────────────────────────────
 
+def test_cli_names_what_to_check_the_label_on(cli, ffmod, monkeypatch):
+    """It printed the internal key -- "check the label on: bbq_sauce"."""
+    t = next(t for t in ffmod.DISH_TEMPLATES if "Pot Pie" in t["name"])
+    monkeypatch.setattr(ffmod, "DISH_TEMPLATES", [t])
+    monkeypatch.setattr(ffmod, "recipe_diet",
+                        lambda template, names: {"suits": [], "contains": [],
+                                                 "verify": ["bbq_sauce", "pastry dough"]})
+    code, out, _ = cli("--recipe")
+    assert code == 0
+    assert "check the label on: BBQ sauce, pastry dough" in out
+    assert "bbq_sauce" not in out
+
+
 def test_cli_diet(cli):
     code, out, _ = cli("--recipe", "--diet", "vegan")
     assert code == 0

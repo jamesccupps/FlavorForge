@@ -6292,7 +6292,10 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         print("%s   novelty %.0f%%   suits: %s"
               % (r["dish_type"], r["novelty"] * 100, suits))
         if r["diet"]["verify"]:
-            print("   check the label on: %s" % ", ".join(r["diet"]["verify"]))
+            # Display names, as the Recipe tab shows: the list holds
+            # ingredient keys ("bbq_sauce") and method words ("gravy").
+            print("   check the label on: %s" % ", ".join(
+                INGREDIENTS[n].name if n in INGREDIENTS else n for n in r["diet"]["verify"]))
         print()
         for slot, name in r["ingredients"].items():
             print("  %-14s %-22s %s" % (slot, INGREDIENTS[name].name,
