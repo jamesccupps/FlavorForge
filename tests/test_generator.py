@@ -225,3 +225,36 @@ def test_subtype_slots_stay_distinct(ffmod):
     rice = ffmod.slot_candidate_set("rice_type")
     assert noodles and breads and rice
     assert not (noodles & breads) and not (noodles & rice) and not (breads & rice)
+
+
+# ─── balance tips ──────────────────────────────────────────────────────
+
+def test_salt_and_acid_are_treated_as_seasoning(ffmod):
+    """A cook adds them at the end, and the AI prompt says to. Through 3.3.1
+    their absence was a tip on most recipes: "No acid to brighten" on 68%,
+    "Consider adding salt" on 51%."""
+    b = ffmod.analyze_balance(["chicken", "rice", "broccoli", "cream"])
+    tips = " ".join(b["texture_suggestions"] + b["taste_suggestions"])
+    assert "No acid" not in tips and "Consider adding salt" not in tips
+    assert "salt" not in b["taste_weak"] and "acid/sour" not in b["taste_weak"]
+
+
+def test_an_imbalance_among_the_ingredients_is_still_reported(ffmod):
+    salty = ffmod.analyze_balance(["soy_sauce", "anchovy", "parmesan"])
+    assert any("missing acid" in t for t in salty["taste_suggestions"])
+    sweet = ffmod.analyze_balance(["honey", "white_sugar", "maple_syrup"])
+    assert any("Very sweet" in t for t in sweet["taste_suggestions"])
+
+
+def test_no_tip_fires_on_most_recipes(engine, ffmod):
+    """A tip that appears on nearly every dish says nothing about this one."""
+    import collections
+    import random
+    random.seed(4)
+    counts, n = collections.Counter(), 400
+    for _ in range(n):
+        b = ffmod.analyze_balance(list(engine.generate_recipe()["ingredients"].values()))
+        for tip in set(b["texture_suggestions"] + b["taste_suggestions"]):
+            counts[tip] += 1
+    common = {t: round(100 * c / n) for t, c in counts.items() if c > n / 2}
+    assert not common, f"tips on more than half of all recipes: {common}"

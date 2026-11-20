@@ -1608,12 +1608,15 @@ def analyze_balance(ingredient_names: List[str]) -> dict:
     strong = [d for d, v in taste_avg.items() if v > 0.4]
     weak = []
 
-    # Check for missing essential dimensions
+    # Salt and acid are seasoning, like the cooking oil: a cook adjusts them
+    # at the end, and the AI Chef's prompt already tells the model to add
+    # salt. So their absence from the main ingredients is not a weakness.
+    # Through 3.3.1 it was reported as one -- "No acid to brighten" on 68% of
+    # generated recipes, "Consider adding salt" on 51% -- which buried the
+    # tips that are specific to a dish. What stays below is imbalance among
+    # the ingredients themselves: salty with no acid, very sweet with no acid.
     if taste_avg.get("sour", 0) < 0.15 and taste_avg.get("salty", 0) > 0.3:
         taste_suggestions.append("Heavy on salt but missing acid — add citrus, vinegar, or pickled element")
-    if taste_avg.get("sour", 0) < 0.1:
-        taste_suggestions.append("No acid to brighten — consider lemon, lime, vinegar, or tomato")
-        weak.append("acid/sour")
     if taste_avg.get("fatty", 0) < 0.1 and taste_avg.get("umami", 0) > 0:
         taste_suggestions.append("Needs richness — add butter, oil, cream, cheese, or avocado")
         weak.append("fat")
@@ -1624,9 +1627,6 @@ def analyze_balance(ingredient_names: List[str]) -> dict:
         taste_suggestions.append("Very sweet — needs acid to balance (citrus, vinegar)")
     if taste_avg.get("spicy", 0) > 0.5 and taste_avg.get("fatty", 0) < 0.2:
         taste_suggestions.append("Lots of heat but no fat to carry it — add cream, butter, or avocado")
-    if taste_avg.get("salty", 0) < 0.1:
-        taste_suggestions.append("Consider adding salt, soy sauce, or a salty cheese")
-        weak.append("salt")
     if taste_avg.get("sweet", 0) < 0.05 and taste_avg.get("bitter", 0) > 0.3:
         taste_suggestions.append("Bitter-heavy — a touch of honey, sugar, or sweet fruit would balance")
 

@@ -43,7 +43,7 @@ Generate random recipe concepts filtered by dish type (Pizza, Pasta, Soup, Curry
 Choose a dish type, pick a template, and fill in each slot with guided suggestions. The system recommends ingredients based on:
 - **Molecular pairing** — shared aroma compounds
 - **Texture gaps** — "missing crunch, try nuts or breadcrumbs"
-- **Taste balance** — "no acid, consider lemon or vinegar"
+- **Taste balance** — "heavy on salt but missing acid"
 
 Includes 24 noodle/pasta types, 9 breads, 7 rices, 8 broths, 16 cooking sauces, 27 dressings, and 20 cheeses.
 
