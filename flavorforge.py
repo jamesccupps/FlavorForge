@@ -2476,6 +2476,21 @@ def fill_template(text: str, chosen: dict, title: bool = False) -> str:
     return re.sub(r"\b(\w+) \1\b", r"\1", text, flags=re.IGNORECASE)
 
 
+def shared_notes(descriptions) -> str:
+    """Compound descriptions joined into one list of notes, each note once.
+
+    Descriptions overlap -- myrcene is "earthy, musky, herbal", terpinene
+    "herbal, citrus, woody" -- so joining them read "earthy, musky, herbal,
+    herbal, citrus" on 18% of the Recipe tab's "share ... notes" lines.
+    """
+    notes = []
+    for description in descriptions:
+        for note in description.split(", "):
+            if note not in notes:
+                notes.append(note)
+    return ", ".join(notes)
+
+
 def template_allows(template: dict, diet: str) -> bool:
     forbidden = DIET_FORBIDS.get(diet)
     if not forbidden:
@@ -4502,9 +4517,12 @@ class FlavorForgeGUI:
                 boring_shared = [c for c in conn["shared"] if c in COMPOUNDS and c in boring]
 
                 if interesting:
-                    descs = [COMPOUNDS[c].description for c in interesting[:3]]
+                    # Rarest first, as the CLI does: the set's own order is
+                    # arbitrary, so which three were shown changed run to run.
+                    interesting.sort(key=lambda c: -self.engine._weight.get(c, 0))
+                    notes = shared_notes(COMPOUNDS[c].description for c in interesting[:3])
                     self.recipe_output.insert(tk.END, f"    {a_name} + {b_name}: ")
-                    self.recipe_output.insert(tk.END, f"share {', '.join(descs)} notes\n", "compound")
+                    self.recipe_output.insert(tk.END, f"share {notes} notes\n", "compound")
                 elif boring_shared:
                     self.recipe_output.insert(tk.END, f"    {a_name} + {b_name}: ")
                     self.recipe_output.insert(tk.END, "subtle background harmony\n", "novelty_low")

@@ -227,6 +227,25 @@ def test_subtype_slots_stay_distinct(ffmod):
     assert not (noodles & breads) and not (noodles & rice) and not (breads & rice)
 
 
+# ─── how a pairing is described ────────────────────────────────────────
+
+def test_shared_notes_say_each_note_once(ffmod):
+    """Myrcene is "earthy, musky, herbal" and terpinene "herbal, citrus,
+    woody"; joined, the Recipe tab read "herbal, herbal" on 18% of lines."""
+    out = ffmod.shared_notes(["earthy, musky, herbal", "herbal, citrus, woody"])
+    assert out == "earthy, musky, herbal, citrus, woody"
+
+
+def test_no_generated_pairing_line_repeats_a_note(engine, ffmod):
+    import random
+    random.seed(9)
+    for _ in range(300):
+        for conn in engine.generate_recipe()["connections"]:
+            notes = ffmod.shared_notes(ffmod.COMPOUNDS[c].description for c in conn["shared"])
+            words = notes.split(", ")
+            assert len(words) == len(set(words)), notes
+
+
 # ─── balance tips ──────────────────────────────────────────────────────
 
 def test_salt_and_acid_are_treated_as_seasoning(ffmod):
