@@ -10,6 +10,7 @@ tests that need Tk say so individually.
 """
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,33 @@ def no_gui():
             pytest.fail(f"GUI tests are required in this run, but {reason}")
         pytest.skip(reason)
     return _no_gui
+
+
+@pytest.fixture
+def build_gui(ffmod, no_gui):
+    """Construct the real window, retrying a Tk start-up that fails transiently.
+
+    On Windows with Tk 8.6 (Python 3.10-3.13), creating many Tk interpreters
+    in one process occasionally fails to read Tcl's own init.tcl: "couldn't
+    read file .../tcl8.6/init.tcl: no such file or directory", for a file
+    that is there and that the interpreters before and after read without
+    trouble. CI annotations showed it on one GUI test per leg, a different
+    one each run; Tk 9.0 legs never did. The old fixture skipped on any
+    error, which hid it. A user's run creates one interpreter, so this is a
+    harness problem and is handled here, not in the app.
+    """
+    def _build():
+        if not ffmod.HAVE_TK:
+            no_gui("tkinter is not installed")
+        error = None
+        for attempt in range(3):
+            try:
+                return ffmod.FlavorForgeGUI()
+            except ffmod.tk.TclError as exc:      # transient on Tk 8.6, or no display
+                error = exc
+                time.sleep(0.25 * (attempt + 1))
+        no_gui(f"a Tk root could not be created after 3 tries: {error}")
+    return _build
 
 
 @pytest.fixture

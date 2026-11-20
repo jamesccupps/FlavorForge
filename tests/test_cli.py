@@ -294,16 +294,44 @@ def test_no_subcommand_without_tkinter_prints_help(ffmod, monkeypatch, capsys):
 
 # ─── the GUI still builds ──────────────────────────────────────────────
 
-def test_the_gui_builds_and_shows_substitutes(ffmod, no_gui):
+def _flaky_gui(ffmod, failures):
+    calls = []
+
+    def construct():
+        calls.append(1)
+        if len(calls) <= failures:
+            raise ffmod.tk.TclError("couldn't read file .../tcl8.6/init.tcl")
+        return "window"
+    return construct, calls
+
+
+def test_a_transient_tk_start_up_failure_is_retried(ffmod, build_gui, monkeypatch):
+    """Windows Tk 8.6 sometimes fails to read init.tcl when a process creates
+    its twentieth interpreter; the next attempt succeeds."""
+    if not ffmod.HAVE_TK:
+        pytest.skip("no tkinter")
+    construct, calls = _flaky_gui(ffmod, failures=2)
+    monkeypatch.setattr(ffmod, "FlavorForgeGUI", construct)
+    assert build_gui() == "window" and len(calls) == 3
+
+
+def test_a_tk_that_never_starts_fails_when_the_gui_is_required(ffmod, build_gui,
+                                                               monkeypatch):
+    if not ffmod.HAVE_TK:
+        pytest.skip("no tkinter")
+    construct, calls = _flaky_gui(ffmod, failures=99)
+    monkeypatch.setattr(ffmod, "FlavorForgeGUI", construct)
+    monkeypatch.setenv("FLAVORFORGE_REQUIRE_GUI", "1")
+    with pytest.raises(pytest.fail.Exception, match="after 3 tries"):
+        build_gui()
+    assert len(calls) == 3
+
+
+def test_the_gui_builds_and_shows_substitutes(ffmod, build_gui):
     """The one test that constructs the real 2,000-line GUI. It is cheap
     insurance: everything else here works on the engine, so a typo in a Tk
     call would otherwise reach the user before it reached a test."""
-    if not ffmod.HAVE_TK:
-        no_gui("tkinter is not installed")
-    try:
-        app = ffmod.FlavorForgeGUI()
-    except Exception as exc:                       # no display
-        no_gui(f"a Tk root could not be created: {exc}")
+    app = build_gui()
     app.root.withdraw()
     try:
         for tab in ("tab_pair", "tab_graph", "tab_recipe", "tab_build",
