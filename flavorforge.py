@@ -3884,6 +3884,7 @@ class FlavorForgeGUI:
         self.selected_ingredient = None
         self.graph_nodes = {}
         self.graph_layout_dirty = True
+        self._graph_layout_size = None
         self._graph_redraw_job = None
         self._pantry_filter_job = None
         self.current_recipe = None  # Store last generated recipe for AI
@@ -4229,6 +4230,19 @@ class FlavorForgeGUI:
         if not ing_names:
             return
 
+        # The layout was computed once, for the canvas size at the time, so
+        # shrinking the window left nodes off the canvas and growing it left
+        # the graph bunched in a corner. Scale the existing positions to the
+        # new size rather than re-randomizing: the picture keeps its shape.
+        if (self.graph_nodes and not self.graph_layout_dirty
+                and self._graph_layout_size != (w, h)):
+            ow, oh = self._graph_layout_size
+            scale = min(w, h) / min(ow, oh)
+            self.graph_nodes = {
+                name: (w / 2 + (x - ow / 2) * scale, h / 2 + (y - oh / 2) * scale)
+                for name, (x, y) in self.graph_nodes.items()}
+            self._graph_layout_size = (w, h)
+
         if self.graph_layout_dirty or not self.graph_nodes:
             self.graph_nodes = {}
             cx, cy = w / 2, h / 2
@@ -4247,6 +4261,7 @@ class FlavorForgeGUI:
                     self.graph_nodes[name] = (x, y)
                 angle += cat_arc
             self.graph_layout_dirty = False
+            self._graph_layout_size = (w, h)
 
         edges = []
         for i in range(len(ing_names)):

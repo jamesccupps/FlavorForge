@@ -230,6 +230,26 @@ def test_typing_in_the_pantry_search_rebuilds_the_list_once(app, monkeypatch):
     assert calls == [("parmesan", "All")]
 
 
+def _canvas_size(app, monkeypatch, w, h):
+    monkeypatch.setattr(app.graph_canvas, "winfo_width", lambda: w)
+    monkeypatch.setattr(app.graph_canvas, "winfo_height", lambda: h)
+
+
+def test_the_graph_layout_follows_a_resize(app, monkeypatch):
+    """Positions were computed once, for the size at the time; after the
+    window shrank, nodes were drawn off the canvas."""
+    _canvas_size(app, monkeypatch, 1200, 900)
+    app.invalidate_graph()
+    before = dict(app.graph_nodes)
+    _canvas_size(app, monkeypatch, 500, 400)
+    app.draw_graph()
+    for name, (x, y) in app.graph_nodes.items():
+        assert 0 <= x <= 500 and 0 <= y <= 400, (name, x, y)
+    # Scaled, not re-randomized: the node order around the circle is kept.
+    a, b = sorted(before)[:2]
+    assert (before[a][0] < before[b][0]) == (app.graph_nodes[a][0] < app.graph_nodes[b][0])
+
+
 # ─── Pantry ────────────────────────────────────────────────────────────
 
 def test_the_mouse_wheel_is_not_captured_app_wide(app):
