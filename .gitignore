@@ -35,3 +35,6 @@ FlavorForge_Recipes/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# CI test report
+junit.xml

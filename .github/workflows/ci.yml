@@ -51,7 +51,7 @@ jobs:
         # -rs lists every skipped test with its reason, so a leg of the matrix
         # that quietly covers less than it looks like is visible in the log.
         if: runner.os == 'Linux'
-        run: xvfb-run -a python -m pytest -q -rs
+        run: xvfb-run -a python -m pytest -q -rs --junitxml=junit.xml
 
       - name: Tk can open a window
         # Its own step, before the suite, so a leg whose Python cannot start
@@ -62,4 +62,11 @@ jobs:
 
       - name: Run tests (Windows)
         if: runner.os == 'Windows'
-        run: python -m pytest -q -rs
+        run: python -m pytest -q -rs --junitxml=junit.xml
+
+      - name: Annotate failed tests
+        # A job's log needs a GitHub sign-in to read; annotations do not. Each
+        # failed test becomes one, with the end of its traceback, on the run
+        # page and through the public API.
+        if: failure()
+        run: python tools/ci_annotate.py junit.xml
