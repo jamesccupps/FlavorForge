@@ -266,8 +266,13 @@ python -m pytest
 
 The tests cover the data, the scoring, the generator, the diet rules, the CLI, the AI Chef against a local stub
 server, persistence, and the GUI driven without a mainloop. Counts and figures quoted in this README are asserted
-against the data, so a stale number fails the build. CI runs on Linux and Windows across Python 3.10–3.14, with the
-GUI tests under Xvfb on Linux. Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+against the data, so a stale number fails the build. CI runs on Linux and Windows across Python 3.10–3.15, with the
+GUI tests under Xvfb on Linux, and fails any leg where they cannot open a window rather than letting them skip.
+Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+To release, bump the version (the module docstring, `__version__` and `pyproject.toml`), add the CHANGELOG section,
+and push a `vX.Y.Z` tag. The release workflow tests the tagged code, checks the tag against `__version__`, and
+publishes the GitHub release with that CHANGELOG section as its notes.
 
 ## Credits
 
