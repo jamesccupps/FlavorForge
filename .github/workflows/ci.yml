@@ -53,6 +53,13 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a python -m pytest -q -rs
 
+      - name: Tk can open a window
+        # Its own step, before the suite, so a leg whose Python cannot start
+        # Tk fails here, under this name, rather than as GUI-test errors deep
+        # in the run. The step name is visible without opening the log.
+        run: python -c "import tkinter; r = tkinter.Tk(); r.update(); r.destroy(); print('Tk', tkinter.TkVersion, 'ok')"
+        if: runner.os == 'Windows'
+
       - name: Run tests (Windows)
         if: runner.os == 'Windows'
         run: python -m pytest -q -rs
