@@ -3912,7 +3912,7 @@ class FlavorForgeGUI:
         header.pack(fill=tk.X, padx=10, pady=(10, 0))
         header.pack_propagate(False)
 
-        tk.Label(header, text=f"⚗ FLAVORFORGE v{__version__}", font=("Consolas", 20, "bold"),
+        tk.Label(header, text=f"FLAVORFORGE v{__version__}", font=("Consolas", 20, "bold"),
                  bg=self.colors["bg"], fg=self.colors["highlight"]).pack(side=tk.LEFT)
         tk.Label(header, text="Molecular Flavor Pairing + AI Chef",
                  font=("Consolas", 10), bg=self.colors["bg"],
@@ -3946,7 +3946,7 @@ class FlavorForgeGUI:
 
         # Tab 4: Build a Dish
         self.tab_build = tk.Frame(notebook, bg=self.colors["bg"])
-        notebook.add(self.tab_build, text="  🍕 Build a Dish  ")
+        notebook.add(self.tab_build, text="  Build a Dish  ")
         self.build_dish_tab()
 
         # Tab 5: Bridge Finder
@@ -3956,12 +3956,12 @@ class FlavorForgeGUI:
 
         # Tab 5: My Pantry
         self.tab_pantry = tk.Frame(notebook, bg=self.colors["bg"])
-        notebook.add(self.tab_pantry, text="  🧊 My Pantry  ")
+        notebook.add(self.tab_pantry, text="  My Pantry  ")
         self.build_pantry_tab()
 
         # Tab 6: AI Chef
         self.tab_ai = tk.Frame(notebook, bg=self.colors["bg"])
-        notebook.add(self.tab_ai, text="  🤖 AI Chef  ")
+        notebook.add(self.tab_ai, text="  AI Chef  ")
         self.build_ai_tab()
 
     # ─── PAIRING EXPLORER TAB ───────────────────────────────────
@@ -4070,7 +4070,7 @@ class FlavorForgeGUI:
         self.selected_ingredient = ing_key
         ing = INGREDIENTS[ing_key]
         self.pair_info_label.config(
-            text=f"⚗ {ing.name.upper()}  |  {ing.category}  |  {ing.flavor_notes}",
+            text=f"{ing.name.upper()}  |  {ing.category}  |  {ing.flavor_notes}",
             fg=self.colors["text_bright"])
 
         compound_descs = [f"{COMPOUNDS[c].name} ({COMPOUNDS[c].description})"
@@ -4330,22 +4330,22 @@ class FlavorForgeGUI:
                                  values=DIETS, state="readonly", width=12)
         diet_menu.pack(side=tk.LEFT, padx=5, pady=15)
 
-        tk.Button(top, text="⚗ Generate", command=self._generate_recipe,
+        tk.Button(top, text="Generate", command=self._generate_recipe,
                   bg=self.colors["highlight"], fg=self.colors["text_bright"],
                   font=("Consolas", 11, "bold"), relief=tk.FLAT, padx=15,
                   cursor="hand2").pack(side=tk.LEFT, padx=10, pady=15)
 
-        tk.Button(top, text="🎲 Surprise!", command=self._surprise_recipe,
+        tk.Button(top, text="Surprise!", command=self._surprise_recipe,
                   bg=self.colors["accent"], fg=self.colors["text"],
                   font=("Consolas", 11), relief=tk.FLAT, padx=12,
                   cursor="hand2").pack(side=tk.LEFT, padx=5, pady=15)
 
-        tk.Button(top, text="🤖 Send to AI Chef →", command=self._send_to_ai,
+        tk.Button(top, text="Send to AI Chef →", command=self._send_to_ai,
                   bg="#1a5276", fg=self.colors["text"],
                   font=("Consolas", 10, "bold"), relief=tk.FLAT, padx=12,
                   cursor="hand2").pack(side=tk.LEFT, padx=15, pady=15)
 
-        tk.Button(top, text="💾 Save", command=self._save_current_recipe,
+        tk.Button(top, text="Save", command=self._save_current_recipe,
                   bg=self.colors["accent"], fg=self.colors["text"],
                   font=("Consolas", 10), relief=tk.FLAT, padx=10,
                   cursor="hand2").pack(side=tk.LEFT, padx=5, pady=15)
@@ -4355,7 +4355,7 @@ class FlavorForgeGUI:
         saved_bar.pack(fill=tk.X, pady=(0, 3))
         saved_bar.pack_propagate(False)
 
-        tk.Label(saved_bar, text="📖 Saved:", font=("Consolas", 10),
+        tk.Label(saved_bar, text="Saved:", font=("Consolas", 10),
                  bg=self.colors["panel"], fg=self.colors["text"]).pack(side=tk.LEFT, padx=(10, 5), pady=5)
 
         self.saved_recipe_var = tk.StringVar(value="")
@@ -4402,12 +4402,12 @@ class FlavorForgeGUI:
         self.recipe_output.config(state=tk.NORMAL)
         self.recipe_output.delete("1.0", tk.END)
         self.recipe_output.insert(tk.END, "\n\n")
-        self.recipe_output.insert(tk.END, "  ⚗  FlavorForge Recipe Generator\n\n", "title")
+        self.recipe_output.insert(tk.END, "  FlavorForge Recipe Generator\n\n", "title")
         self.recipe_output.insert(tk.END, "  Pick a seed ingredient or hit 'Surprise Me!' to discover\n")
         self.recipe_output.insert(tk.END, "  scientifically novel flavor combinations.\n\n")
         self.recipe_output.insert(tk.END, "  Every pairing is backed by shared aroma compounds —\n")
         self.recipe_output.insert(tk.END, "  real molecular connections, not vibes.\n\n")
-        self.recipe_output.insert(tk.END, "  Use '🤖 Send to AI Chef' to get a full recipe\n")
+        self.recipe_output.insert(tk.END, "  Use 'Send to AI Chef' to get a full recipe\n")
         self.recipe_output.insert(tk.END, "  with quantities and step-by-step instructions.\n")
         self.recipe_output.config(state=tk.DISABLED)
 
@@ -4543,7 +4543,7 @@ class FlavorForgeGUI:
             all_tips = balance["texture_suggestions"] + balance["taste_suggestions"]
             if all_tips:
                 for tip in all_tips:
-                    self.recipe_output.insert(tk.END, f"    💡 {tip}\n", "compound")
+                    self.recipe_output.insert(tk.END, f"    • {tip}\n", "compound")
             else:
                 self.recipe_output.insert(tk.END, "    ✓ Well balanced!\n", "novelty_high")
 
@@ -4553,7 +4553,7 @@ class FlavorForgeGUI:
         self.recipe_output.insert(tk.END,
             "    (Send to AI Chef for a proper recipe with quantities & steps)\n", "novelty_low")
 
-        self.recipe_output.insert(tk.END, "\n\n  ─── Hit 🤖 Send to AI Chef for the full recipe ───\n")
+        self.recipe_output.insert(tk.END, "\n\n  ─── Hit Send to AI Chef for the full recipe ───\n")
         self.recipe_output.config(state=tk.DISABLED)
 
     def _generate_recipe(self):
@@ -4755,25 +4755,25 @@ class FlavorForgeGUI:
         self.build_btn_frame = tk.Frame(self.build_slots_frame, bg=self.colors["panel"])
         self.build_btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
 
-        tk.Button(self.build_btn_frame, text="⚗ Build Recipe",
+        tk.Button(self.build_btn_frame, text="Build Recipe",
                   command=self._build_dish_generate,
                   bg=self.colors["highlight"], fg=self.colors["text_bright"],
                   font=("Consolas", 11, "bold"), relief=tk.FLAT, padx=15,
                   cursor="hand2").pack(side=tk.LEFT, padx=5)
 
-        tk.Button(self.build_btn_frame, text="🤖 → AI Chef",
+        tk.Button(self.build_btn_frame, text="→ AI Chef",
                   command=self._build_dish_to_ai,
                   bg="#1a5276", fg=self.colors["text"],
                   font=("Consolas", 10), relief=tk.FLAT, padx=10,
                   cursor="hand2").pack(side=tk.LEFT, padx=10)
 
-        tk.Button(self.build_btn_frame, text="🎲 Auto-Fill Best",
+        tk.Button(self.build_btn_frame, text="Auto-Fill Best",
                   command=self._build_dish_autofill,
                   bg=self.colors["accent"], fg=self.colors["text"],
                   font=("Consolas", 9), relief=tk.FLAT, padx=8,
                   cursor="hand2").pack(side=tk.RIGHT, padx=5)
 
-        tk.Button(self.build_btn_frame, text="💾 Save",
+        tk.Button(self.build_btn_frame, text="Save",
                   command=self._save_current_recipe,
                   bg=self.colors["accent"], fg=self.colors["text"],
                   font=("Consolas", 9), relief=tk.FLAT, padx=8,
@@ -4811,7 +4811,7 @@ class FlavorForgeGUI:
         self.build_output.config(state=tk.NORMAL)
         self.build_output.delete("1.0", tk.END)
         self.build_output.insert(tk.END, "\n")
-        self.build_output.insert(tk.END, "  🍕  Build a Dish\n\n", "title")
+        self.build_output.insert(tk.END, "  Build a Dish\n\n", "title")
         self.build_output.insert(tk.END, "  1. Pick what kind of dish you want\n")
         self.build_output.insert(tk.END, "  2. Choose a template\n")
         self.build_output.insert(tk.END, "  3. Fill in each ingredient slot\n")
@@ -5075,7 +5075,7 @@ class FlavorForgeGUI:
             self.build_output.insert(tk.END, "\n  TEXTURE\n", "section")
             self.build_output.insert(tk.END, f"    {', '.join(balance['textures'])}\n", "dim")
             for tip in balance["texture_suggestions"]:
-                self.build_output.insert(tk.END, f"    💡 {tip}\n", "suggest")
+                self.build_output.insert(tk.END, f"    • {tip}\n", "suggest")
 
             self.build_output.insert(tk.END, "\n  TASTE BALANCE\n", "section")
             if balance["taste_strong"]:
@@ -5085,7 +5085,7 @@ class FlavorForgeGUI:
                 self.build_output.insert(tk.END,
                     f"    Missing: {', '.join(balance['taste_weak'])}\n", "dim")
             for tip in balance["taste_suggestions"]:
-                self.build_output.insert(tk.END, f"    💡 {tip}\n", "suggest")
+                self.build_output.insert(tk.END, f"    • {tip}\n", "suggest")
 
             if not balance["taste_suggestions"] and not balance["texture_suggestions"]:
                 self.build_output.insert(tk.END, "    ✓ Well balanced!\n", "good")
@@ -5223,7 +5223,7 @@ class FlavorForgeGUI:
                                values=sorted(INGREDIENTS.keys()), state="readonly", width=15)
         b_menu.pack(side=tk.LEFT, padx=5, pady=15)
 
-        tk.Button(top, text="🌉 Find Bridges", command=self._find_bridges,
+        tk.Button(top, text="Find Bridges", command=self._find_bridges,
                   bg=self.colors["highlight"], fg=self.colors["text_bright"],
                   font=("Consolas", 11, "bold"), relief=tk.FLAT, padx=15,
                   cursor="hand2").pack(side=tk.LEFT, padx=20, pady=15)
@@ -5243,7 +5243,7 @@ class FlavorForgeGUI:
 
         self.bridge_output.config(state=tk.NORMAL)
         self.bridge_output.insert(tk.END, "\n\n")
-        self.bridge_output.insert(tk.END, "  🌉  Bridge Finder\n\n", "title")
+        self.bridge_output.insert(tk.END, "  Bridge Finder\n\n", "title")
         self.bridge_output.insert(tk.END, "  Pick two ingredients that seem incompatible.\n")
         self.bridge_output.insert(tk.END, "  FlavorForge will find a third ingredient that\n")
         self.bridge_output.insert(tk.END, "  shares compounds with BOTH — bridging the gap.\n")
@@ -5420,7 +5420,7 @@ class FlavorForgeGUI:
         controls.pack(fill=tk.X, pady=(0, 5))
         controls.pack_propagate(False)
 
-        tk.Button(controls, text="🍳 What Can I Make?", command=self._pantry_search_recipes,
+        tk.Button(controls, text="What Can I Make?", command=self._pantry_search_recipes,
                   bg=self.colors["highlight"], fg=self.colors["text_bright"],
                   font=("Consolas", 12, "bold"), relief=tk.FLAT, padx=15,
                   cursor="hand2").pack(side=tk.LEFT, padx=10, pady=10)
@@ -5432,12 +5432,12 @@ class FlavorForgeGUI:
         ttk.Combobox(controls, textvariable=self.pantry_type_var,
                      values=DISH_TYPES, state="readonly", width=18).pack(side=tk.LEFT, padx=5, pady=10)
 
-        tk.Button(controls, text="🛒 Almost There", command=self._pantry_almost_there,
+        tk.Button(controls, text="Almost There", command=self._pantry_almost_there,
                   bg="#1a5276", fg=self.colors["text"],
                   font=("Consolas", 10, "bold"), relief=tk.FLAT, padx=12,
                   cursor="hand2").pack(side=tk.LEFT, padx=15, pady=10)
 
-        tk.Button(controls, text="🤖 → AI Chef", command=self._pantry_send_to_ai,
+        tk.Button(controls, text="→ AI Chef", command=self._pantry_send_to_ai,
                   bg=self.colors["accent"], fg=self.colors["text"],
                   font=("Consolas", 10), relief=tk.FLAT, padx=10,
                   cursor="hand2").pack(side=tk.LEFT, padx=5, pady=10)
@@ -5530,7 +5530,7 @@ class FlavorForgeGUI:
         n = len(self.pantry)
         cats = set(INGREDIENTS[n].category for n in self.pantry if n in INGREDIENTS)
         self.pantry_count_label.config(
-            text=f"🧊 {n} ingredients across {len(cats)} categories")
+            text=f"{n} ingredients across {len(cats)} categories")
 
     def _add_staples(self):
         staples = {
@@ -5563,11 +5563,11 @@ class FlavorForgeGUI:
         self.pantry_output.config(state=tk.NORMAL)
         self.pantry_output.delete("1.0", tk.END)
         self.pantry_output.insert(tk.END, "\n")
-        self.pantry_output.insert(tk.END, "  🧊  My Pantry\n\n", "title")
+        self.pantry_output.insert(tk.END, "  My Pantry\n\n", "title")
         self.pantry_output.insert(tk.END, "  Check off the ingredients you have on hand,\n")
         self.pantry_output.insert(tk.END, "  then hit 'What Can I Make?' to find recipes\n")
         self.pantry_output.insert(tk.END, "  using only what's in your kitchen.\n\n")
-        self.pantry_output.insert(tk.END, "  🛒 'Almost There' shows recipes where you're\n")
+        self.pantry_output.insert(tk.END, "  'Almost There' shows recipes where you're\n")
         self.pantry_output.insert(tk.END, "  just ONE ingredient short — your shopping list.\n\n")
         self.pantry_output.insert(tk.END, "  Tip: Hit '+ Common Staples' for a quick start.\n")
         self.pantry_output.insert(tk.END, "  Your pantry saves between sessions.\n")
@@ -5600,7 +5600,7 @@ class FlavorForgeGUI:
         if not recipes:
             self.pantry_output.insert(tk.END, "\n  No recipes found with your current pantry.\n")
             self.pantry_output.insert(tk.END, "  Try adding more ingredients or changing the dish style.\n")
-            self.pantry_output.insert(tk.END, "  Hit '🛒 Almost There' to see what you're close to making!\n")
+            self.pantry_output.insert(tk.END, "  Hit 'Almost There' to see what you're close to making!\n")
             self.pantry_output.config(state=tk.DISABLED)
             return
 
@@ -5636,7 +5636,7 @@ class FlavorForgeGUI:
                     shared = [COMPOUNDS[c].name for c in conn["shared"] if c in COMPOUNDS][:3]
                     a_name = INGREDIENTS[a].name if a in INGREDIENTS else a
                     b_name = INGREDIENTS[b].name if b in INGREDIENTS else b
-                    self.pantry_output.insert(tk.END, f"      ⚗ {a_name} + {b_name}: ")
+                    self.pantry_output.insert(tk.END, f"      • {a_name} + {b_name}: ")
                     self.pantry_output.insert(tk.END, f"{', '.join(shared)}\n", "compound")
 
             self.pantry_output.insert(tk.END, "\n")
@@ -5669,7 +5669,7 @@ class FlavorForgeGUI:
             self.pantry_output.config(state=tk.DISABLED)
             return
 
-        self.pantry_output.insert(tk.END, f"\n  🛒 You're ONE ingredient away from these recipes!\n\n", "title")
+        self.pantry_output.insert(tk.END, f"\n  You're ONE ingredient away from these recipes!\n\n", "title")
 
         self.pantry_recipes_list = almost
         for i, recipe in enumerate(almost):
@@ -5678,7 +5678,7 @@ class FlavorForgeGUI:
             self.pantry_output.insert(tk.END, f"      [{recipe['dish_type']}]\n", "dish_type")
 
             # Show what's missing
-            self.pantry_output.insert(tk.END, f"      🛒 You need: ")
+            self.pantry_output.insert(tk.END, f"      You need: ")
             self.pantry_output.insert(tk.END,
                 f"{recipe['missing_display']} ({recipe['missing_slot']})\n", "missing")
 
@@ -5790,7 +5790,7 @@ class FlavorForgeGUI:
         action_bar.pack(fill=tk.X, pady=(0, 5))
         action_bar.pack_propagate(False)
 
-        tk.Button(action_bar, text="⚗ Generate Recipe + Ask AI Chef",
+        tk.Button(action_bar, text="Generate Recipe + Ask AI Chef",
                   command=self._ai_generate_new,
                   bg=self.colors["highlight"], fg=self.colors["text_bright"],
                   font=("Consolas", 11, "bold"), relief=tk.FLAT, padx=15,
@@ -5809,7 +5809,7 @@ class FlavorForgeGUI:
                                     bg=self.colors["panel"], fg=self.colors["highlight"])
         self.ai_spinner.pack(side=tk.LEFT, padx=15)
 
-        tk.Button(action_bar, text="💾 Save AI Recipe", command=self._save_ai_recipe,
+        tk.Button(action_bar, text="Save AI Recipe", command=self._save_ai_recipe,
                   bg=self.colors["accent"], fg=self.colors["text"],
                   font=("Consolas", 10), relief=tk.FLAT, padx=10,
                   cursor="hand2").pack(side=tk.RIGHT, padx=10, pady=10)
@@ -5840,7 +5840,7 @@ class FlavorForgeGUI:
         self.ai_output.config(state=tk.NORMAL)
         self.ai_output.delete("1.0", tk.END)
         self.ai_output.insert(tk.END, "\n")
-        self.ai_output.insert(tk.END, "  🤖  AI Chef\n\n", "header")
+        self.ai_output.insert(tk.END, "  AI Chef\n\n", "header")
         self.ai_output.insert(tk.END, "  FlavorForge generates a molecular pairing concept,\n")
         self.ai_output.insert(tk.END, "  then sends it to your AI (Ollama or Claude API)\n")
         self.ai_output.insert(tk.END, "  for a full recipe with quantities and instructions.\n\n")
@@ -5852,7 +5852,7 @@ class FlavorForgeGUI:
             self.ai_output.insert(tk.END, f"  Model: {self.ai_chef.anthropic_model}\n")
             key_status = "Set" if self.ai_chef.anthropic_key else "Not set"
             self.ai_output.insert(tk.END, f"  API Key: {key_status}\n")
-        self.ai_output.insert(tk.END, "\n  Generate a recipe on the Recipe tab then hit '🤖 Send to AI Chef',\n")
+        self.ai_output.insert(tk.END, "\n  Generate a recipe on the Recipe tab then hit 'Send to AI Chef',\n")
         self.ai_output.insert(tk.END, "  or use the button above to do both in one step.\n")
         self.ai_output.config(state=tk.DISABLED)
 
@@ -5972,7 +5972,7 @@ class FlavorForgeGUI:
         self.ai_output.insert(tk.END, f"  Sending to {self.ai_chef.provider}...\n\n", "status")
         self.ai_output.config(state=tk.DISABLED)
 
-        self.ai_spinner.config(text="⏳ Generating...")
+        self.ai_spinner.config(text="Generating...")
         self.ai_save_status.config(text="")
 
         # One generation owns the pane at a time. Starting another while the
@@ -5990,7 +5990,7 @@ class FlavorForgeGUI:
         def on_chunk(text):
             if text is None:
                 self._call_on_ui(lambda: current() and self.ai_spinner.config(
-                    text="✅ Done — hit Save to keep"))
+                    text="✓ Done — hit Save to keep"))
                 return
             self._call_on_ui(lambda t=text: current() and self._append_ai_text(t))
 
@@ -6008,7 +6008,7 @@ class FlavorForgeGUI:
         self.ai_output.config(state=tk.DISABLED)
 
     def _show_ai_error(self, msg):
-        self.ai_spinner.config(text="❌ Error")
+        self.ai_spinner.config(text="Error")
         self.ai_output.config(state=tk.NORMAL)
         self.ai_output.insert(tk.END, f"\n\n  ERROR: {msg}\n", "error")
         self.ai_output.config(state=tk.DISABLED)

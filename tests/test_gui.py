@@ -47,6 +47,25 @@ def test_the_window_never_opens_larger_than_the_screen(app):
     assert h <= app.root.winfo_screenheight()
 
 
+def test_the_window_uses_only_glyphs_tk_draws_without_a_font_search(ffmod):
+    """Tk on Windows searches for a fallback font the first time it draws a
+    glyph the widget's font lacks. Measured per glyph in a fresh interpreter:
+    270-430 ms for each emoji, 100-180 ms for the alembic, hourglass and
+    check/cross dingbats, under 10 ms for everything allowed below. With
+    fourteen such glyphs in labels and buttons the window took a median
+    1.9 s to open; without them, 0.84 s."""
+    import ast
+    from pathlib import Path
+    cheap = set("—•←→↔─█░★✓⟳") | set("éñ÷×°")
+    src = Path(ffmod.__file__).read_text(encoding="utf-8")
+    gui = next(n for n in ast.parse(src).body
+               if isinstance(n, ast.ClassDef) and n.name == "FlavorForgeGUI")
+    found = {ch for node in ast.walk(gui)
+             if isinstance(node, ast.Constant) and isinstance(node.value, str)
+             for ch in node.value if ord(ch) > 127}
+    assert found <= cheap, f"slow glyphs in the window: {sorted(found - cheap)}"
+
+
 # ─── AI Chef settings ──────────────────────────────────────────────────
 
 def test_the_migration_note_goes_away_once_another_model_is_picked(app, ffmod):
