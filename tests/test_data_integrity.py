@@ -222,6 +222,14 @@ def test_every_placeholder_can_be_filled(ffmod):
     assert not bad, bad
 
 
+def test_every_slot_is_used_in_the_method(ffmod):
+    """A slot the method never mentions is an ingredient the recipe lists and
+    never says what to do with. Three salads chose an oil this way."""
+    unused = [(t["name"], s) for t in ffmod.DISH_TEMPLATES for s in t["structure"]
+              if "{%s}" % s not in t["technique"]]
+    assert not unused, unused
+
+
 def test_every_needs_slot_is_also_in_structure(ffmod):
     """generate_recipe places the seed by scanning `needs`, then fills from
     `structure`. A slot in needs but not structure can take the seed and then
