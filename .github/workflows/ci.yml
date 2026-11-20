@@ -24,7 +24,7 @@ jobs:
       # Pinned by commit SHA, not tag: tags are mutable. The trailing comment
       # says which version each SHA is; Dependabot (.github/dependabot.yml)
       # bumps both together, monthly.
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
